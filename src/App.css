@@ -1,0 +1,23 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app__body {
+  display: grid;
+  grid-template-columns: 260px 1fr 220px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Responsive: collapse to single column on small screens */
+@media (max-width: 768px) {
+  .app__body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 380px auto;
+    overflow-y: auto;
+  }
+}
