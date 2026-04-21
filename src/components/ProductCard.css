@@ -1,0 +1,98 @@
+/* ── Product Card ──────────────────────────────────────────────────── */
+
+.prod-card {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  user-select: none;
+}
+
+.prod-card:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 3px 10px rgba(0,0,0,.12);
+  transform: translateY(-1px);
+}
+
+.prod-card--selected {
+  border-color: #2e6b3e;
+  box-shadow: 0 0 0 2px rgba(46,107,62,.25);
+}
+
+/* Thumbnail area — 3D canvas or placeholder */
+.prod-card__thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Make the R3F Canvas fill the thumb */
+.prod-card__thumb canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Coloured placeholder */
+.prod-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prod-card__placeholder span {
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(255,255,255,.85);
+  text-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+/* Info row */
+.prod-card__info {
+  padding: 6px 7px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.prod-card__name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1a1a2e;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.prod-card__price {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2e6b3e;
+}
+
+/* Selected tick badge */
+.prod-card__check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  background: #2e6b3e;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}

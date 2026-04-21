@@ -23,7 +23,7 @@ import GlbPart, { SceneBoundsContext } from './GlbPart'
 // Each accessory is placed so its near face touches the primary's far face —
 // edge-to-edge with zero gap. Fine-tune with `offset` in products.js.
 //
-function resolveSnapPosition(zone, primaryHalfX, primaryHalfZ, accHalfX, accHalfZ, offset) {
+export function resolveSnapPosition(zone, primaryHalfX, primaryHalfZ, accHalfX, accHalfZ, offset) {
   const ox = offset?.[0] ?? 0
   const oy = offset?.[1] ?? 0
   const oz = offset?.[2] ?? 0

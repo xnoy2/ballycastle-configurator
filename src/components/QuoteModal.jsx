@@ -1,17 +1,6 @@
-/**
- * QuoteModal.jsx
- *
- * Contact form modal → PDF generation → download + mailto
- *
- * No backend required. Uses jsPDF (loaded via CDN in index.html) to
- * build the PDF entirely in the browser, then triggers a download.
- * A pre-filled mailto link opens the user's email client so they can
- * attach the downloaded PDF.
- *
- * Touch nothing in DragScene / ViewerPanel / useConfigurator.
- */
-import React, { useState, useCallback, useRef } from 'react'
-import { X, FileText, Send, Phone, Mail, User } from 'lucide-react'
+import React, { useState, useCallback } from 'react'
+import { X, Send, Phone, Mail, User } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 import './QuoteModal.css'
 
 // ─── PDF builder ──────────────────────────────────────────────────────────────
@@ -233,8 +222,9 @@ export default function QuoteModal({ lineItems, totalPrice, sceneImage, onClose 
   const [name,    setName]    = useState('')
   const [email,   setEmail]   = useState('')
   const [phone,   setPhone]   = useState('')
-  const [step,    setStep]    = useState('form')   // 'form' | 'generating' | 'done'
+  const [step,    setStep]    = useState('form')   // 'form' | 'sending' | 'done'
   const [error,   setError]   = useState('')
+  const [pdfDoc,  setPdfDoc]  = useState(null)     // kept for fallback download
 
   const validate = () => {
     if (!name.trim())  return 'Please enter your name.'
@@ -248,33 +238,40 @@ export default function QuoteModal({ lineItems, totalPrice, sceneImage, onClose 
     const err = validate()
     if (err) { setError(err); return }
     setError('')
-    setStep('generating')
+    setStep('sending')
 
     try {
       const fullPhone = phone.startsWith('+') ? phone : `+44 ${phone.replace(/^0/, '')}`
       const doc = await buildPDF({ name, email, phone: fullPhone, lineItems, totalPrice, sceneImage })
+      setPdfDoc(doc)
 
-      // 1. Download the PDF
-      const filename = `Ballycastle-Quote-${name.replace(/\s+/g, '-')}.pdf`
-      doc.save(filename)
+      // Convert PDF to base64 for email attachment
+      const pdfBase64 = doc.output('datauristring').split(',')[1]
 
-      // 2. Open mailto so the user can email it to themselves / us
-      const subject = encodeURIComponent('Ballycastle Climbing Frames — My Quote')
-      const body = encodeURIComponent(
-        `Hi,\n\nPlease find my climbing frame quote attached (${filename}).\n\n` +
-        `Name: ${name}\nEmail: ${email}\nPhone: ${fullPhone}\n\n` +
-        `Items:\n${lineItems.map(i => `  • ${i.label}: £${i.price.toLocaleString()}`).join('\n')}\n\n` +
-        `Estimated Total: £${totalPrice.toLocaleString()}\n\nThank you!`
-      )
-      window.open(`mailto:info@ballycastleclimbingframes.co.uk?subject=${subject}&body=${body}`)
+      // Send email with PDF attached via Supabase Edge Function → Resend
+      const { error: fnError } = await supabase.functions.invoke('send-quote', {
+        body: { name, email, phone: fullPhone, lineItems, totalPrice, pdfBase64 },
+      })
+      if (fnError) throw fnError
+
+      // Save quote record to DB (non-blocking)
+      supabase.from('quotes').insert({
+        name,
+        email,
+        phone: fullPhone,
+        total_price: totalPrice,
+        line_items: lineItems,
+      }).then(({ error: dbErr }) => {
+        if (dbErr) console.warn('Quote not saved to DB:', dbErr.message)
+      })
 
       setStep('done')
     } catch (err) {
       console.error(err)
-      setError('Something went wrong generating your quote. Please try again.')
+      setError('Failed to send your quote. Please try again or contact us directly.')
       setStep('form')
     }
-  }, [name, email, phone, lineItems, totalPrice])
+  }, [name, email, phone, lineItems, totalPrice, sceneImage])
 
   return (
     <div className="qm-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -294,7 +291,7 @@ export default function QuoteModal({ lineItems, totalPrice, sceneImage, onClose 
         {step === 'form' && (
           <form className="qm-form" onSubmit={handleSubmit} noValidate>
             <p className="qm-intro">
-              Enter your details and we'll generate a personalised PDF quote for your
+              Enter your details and we'll email you a personalised PDF quote for your
               <strong> £{totalPrice.toLocaleString()}</strong> configuration.
             </p>
 
@@ -348,35 +345,44 @@ export default function QuoteModal({ lineItems, totalPrice, sceneImage, onClose 
             {error && <p className="qm-error">{error}</p>}
 
             <button className="qm-submit" type="submit">
-              <FileText size={16} />
-              Download PDF &amp; Send Quote
+              <Send size={16} />
+              Send Quote to My Email
             </button>
 
             <p className="qm-footer-note">
-              Your PDF downloads instantly. We'll also receive your details and
-              follow up within 24 hours.
+              A PDF quote will be sent to your email address. Our team will follow up within 24 hours.
             </p>
           </form>
         )}
 
-        {step === 'generating' && (
+        {step === 'sending' && (
           <div className="qm-state qm-state--loading">
             <div className="qm-spinner" />
-            <p>Building your quote PDF…</p>
+            <p>Sending your quote to <strong>{email}</strong>…</p>
           </div>
         )}
 
         {step === 'done' && (
           <div className="qm-state qm-state--done">
             <div className="qm-check">✓</div>
-            <h3>Quote Ready!</h3>
+            <h3>Quote Sent!</h3>
             <p>
-              Your PDF has been downloaded.<br />
-              Your email client has opened — attach the PDF and send.
+              Your PDF quote has been emailed to<br />
+              <strong>{email}</strong>
             </p>
             <p className="qm-done-sub">
-              Our team will be in touch within 24 hours.
+              Our team will be in touch within 24 hours.<br />
+              Can't find the email? Check your spam folder.
             </p>
+            {pdfDoc && (
+              <button
+                className="qm-submit qm-submit--outline"
+                onClick={() => pdfDoc.save(`BCF-Quote-${name.replace(/\s+/g, '-')}.pdf`)}
+                style={{ marginBottom: 10 }}
+              >
+                Download PDF copy
+              </button>
+            )}
             <button className="qm-submit qm-submit--outline" onClick={onClose}>
               Close
             </button>

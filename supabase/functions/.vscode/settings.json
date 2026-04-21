@@ -1,0 +1,6 @@
+{
+  "deno.enable": true,
+  "deno.unstable": false,
+  "deno.importMap": "./deno.json",
+  "editor.defaultFormatter": "denoland.vscode-deno"
+}

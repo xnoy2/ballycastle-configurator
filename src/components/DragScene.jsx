@@ -48,7 +48,7 @@ export const MODEL_EXTENTS = {
   'acc-single-beam':        { hX: 0.750, hZ: 0.100 },
   'shelter':                { hX: 1.750, hZ: 0.100 },
 }
-function getExtents(value) {
+export function getExtents(value) {
   if (!value) return { hX: 1.0, hZ: 1.0 }
   for (const [k, v] of Object.entries(MODEL_EXTENTS)) {
     if (value.includes(k)) return v
@@ -443,9 +443,11 @@ export default function DragScene({
       let px = clamp(wx-grabOffset.current[0])
       let pz = clamp(wz-grabOffset.current[1])
       const snap = findSnap(px,pz,p.value)
-      // Preserve Y so floating items stay elevated after drop
+      // Always preserve the DRAGGED piece's own Y — never adopt the target's Y
       const preservedY = p.position[1] ?? GROUND_Y
-      const finalPos = snap ? snap.target : [px, preservedY, pz]
+      const finalPos = snap
+        ? [snap.target[0], preservedY, snap.target[2]]
+        : [px, preservedY, pz]
       onPlacementsChange(prev =>
         prev.map(x => x.id===draggingId ? {...x,position:finalPos} : x)
       )
