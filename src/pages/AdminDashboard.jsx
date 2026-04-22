@@ -478,6 +478,10 @@ function AddModuleModal({ onClose, onAdded, existingCount }) {
 
 // ─── Ground Surfaces tab ───────────────────────────────────────────────────
 function SurfacesTab({ surfaces, setSurfaces, flash }) {
+  const [adding, setAdding] = useState(false)
+  const [form, setForm]     = useState({ value: '', label: '', price: '' })
+  const [err, setErr]       = useState('')
+
   async function saveField(surf, field, value) {
     const update = { [field]: field === 'price' ? parseInt(value, 10) : value }
     const { error } = await supabase.from('ground_surfaces').update(update).eq('id', surf.id)
@@ -489,26 +493,56 @@ function SurfacesTab({ surfaces, setSurfaces, flash }) {
     if (!error) { setSurfaces(p => p.map(s => s.id === surf.id ? { ...s, is_active: !surf.is_active } : s)); flash('Saved') }
   }
 
-  async function addSurface() {
-    const value = prompt('Enter a unique key (e.g. wetpour-extra):')
-    if (!value) return
-    const label = prompt('Display label:')
-    if (!label) return
-    const price = parseInt(prompt('Price (number only):') || '0', 10)
+  async function confirmAdd(e) {
+    e.preventDefault()
+    if (!form.value.trim()) { setErr('Key is required.'); return }
+    if (!form.label.trim()) { setErr('Label is required.'); return }
     const { error } = await supabase.from('ground_surfaces').insert({
-      value: value.trim().toLowerCase(), label: label.trim(), price, sort_order: surfaces.length + 1,
+      value: form.value.trim().toLowerCase(),
+      label: form.label.trim(),
+      price: parseInt(form.price || '0', 10),
+      sort_order: surfaces.length + 1,
     })
-    if (error) { alert(error.message); return }
+    if (error) { setErr(error.message); return }
     const { data } = await supabase.from('ground_surfaces').select('*').order('sort_order')
     setSurfaces(data || [])
     flash('Surface added')
+    setAdding(false)
+    setForm({ value: '', label: '', price: '' })
+    setErr('')
   }
 
   return (
     <div className="adm-section">
+      {adding && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setAdding(false) }}>
+          <div className="adm-modal">
+            <h3>Add Ground Surface</h3>
+            <form className="adm-modal-form" onSubmit={confirmAdd}>
+              <label>
+                Unique Key <small>(e.g. wetpour-extra)</small>
+                <input autoFocus value={form.value} onChange={e => setForm(p => ({ ...p, value: e.target.value }))} placeholder="wetpour-extra" />
+              </label>
+              <label>
+                Display Label
+                <input value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder="Wetpour Floor — Extra" />
+              </label>
+              <label>
+                Price (£)
+                <input type="number" min="0" value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} placeholder="0" />
+              </label>
+              {err && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{err}</p>}
+              <div className="adm-modal-actions">
+                <button type="submit" className="adm-btn-primary">Add Surface</button>
+                <button type="button" className="adm-btn-ghost" onClick={() => { setAdding(false); setErr('') }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <div className="adm-section-header">
         <h2>Ground Surfaces</h2>
-        <button className="adm-btn-primary" onClick={addSurface}>+ Add Surface</button>
+        <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Add Surface</button>
       </div>
       <table className="adm-table">
         <thead>

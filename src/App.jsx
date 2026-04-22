@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { LayoutGrid, Eye, FileText } from 'lucide-react'
 
 // ── Supabase products provider
 import { ProductsProvider } from './context/ProductsContext'
@@ -27,6 +28,7 @@ import './App.css'
 function StandaloneConfigurator() {
   const { loading } = useProductsContext()
   const config = useConfigurator()
+  const [mobileTab, setMobileTab] = useState('build')
 
   if (loading) {
     return (
@@ -43,11 +45,25 @@ function StandaloneConfigurator() {
   return (
     <div className="app">
       <TopBar />
-      <div className="app__body">
+      <div className="app__body" data-tab={mobileTab}>
         <ModulePanel  MODULES={config.MODULES} selections={config.selections} toggleModule={config.toggleModule} setSelect={config.setSelect} selectOption={config.selectOption} />
         <ViewerPanel  totalPrice={config.totalPrice} lineItems={config.lineItems} warnings={config.warnings} activeGlbParts={config.activeGlbParts} hasAnyGlb={config.hasAnyGlb} />
         <SummaryPanel lineItems={config.lineItems} totalPrice={config.totalPrice} groundSurface={config.groundSurface} setGroundSurface={config.setGroundSurface} installation={config.installation} setInstallation={config.setInstallation} GROUND_SURFACES={config.GROUND_SURFACES} INSTALLATION_OPTIONS={config.INSTALLATION_OPTIONS} />
       </div>
+      <nav className="mobile-tabs">
+        <button className={`mobile-tab${mobileTab === 'build'   ? ' mobile-tab--active' : ''}`} onClick={() => setMobileTab('build')}>
+          <LayoutGrid size={22} />
+          <span>Build</span>
+        </button>
+        <button className={`mobile-tab${mobileTab === 'preview' ? ' mobile-tab--active' : ''}`} onClick={() => setMobileTab('preview')}>
+          <Eye size={22} />
+          <span>Preview</span>
+        </button>
+        <button className={`mobile-tab${mobileTab === 'quote'   ? ' mobile-tab--active' : ''}`} onClick={() => setMobileTab('quote')}>
+          <FileText size={22} />
+          <span>Quote</span>
+        </button>
+      </nav>
     </div>
   )
 }

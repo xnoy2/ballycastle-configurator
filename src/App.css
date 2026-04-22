@@ -35,11 +35,55 @@
   overflow: hidden;
 }
 
-/* Responsive: collapse to single column on small screens */
+/* Mobile tab bar — hidden on desktop */
+.mobile-tabs { display: none; }
+
 @media (max-width: 768px) {
   .app__body {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 380px auto;
-    overflow-y: auto;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+  }
+
+  /* Show only the active tab's panel */
+  .app__body[data-tab="build"]   .viewer-panel,
+  .app__body[data-tab="build"]   .summary-panel  { display: none; }
+
+  .app__body[data-tab="preview"] .module-panel,
+  .app__body[data-tab="preview"] .summary-panel  { display: none; }
+
+  .app__body[data-tab="quote"]   .module-panel,
+  .app__body[data-tab="quote"]   .viewer-panel   { display: none; }
+
+  /* Bottom tab bar */
+  .mobile-tabs {
+    display: flex;
+    flex-shrink: 0;
+    height: 60px;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font-body);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-tab--active {
+    color: var(--color-brand);
   }
 }

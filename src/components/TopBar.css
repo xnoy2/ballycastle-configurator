@@ -62,3 +62,19 @@
 .topbar__link:hover {
   color: var(--color-brand);
 }
+
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 14px;
+    height: 48px;
+  }
+
+  .topbar__name { font-size: 15px; }
+  .topbar__sub  { display: none; }
+  .topbar__right { display: none; }
+
+  .topbar__badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+}
