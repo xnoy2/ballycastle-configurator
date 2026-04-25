@@ -7,12 +7,7 @@ import { ProductsProvider } from './context/ProductsContext'
 import { useProductsContext } from './context/ProductsContext'
 
 // ── Portal
-import PortalShell      from './portal/PortalShell'
-import Dashboard        from './pages/Dashboard'
-import BuildProgress    from './pages/BuildProgress'
-import Photos           from './pages/Photos'
-import ConfiguratorPage from './pages/ConfiguratorPage'
-import { Delivery, AddExtras, ReferAFriend, Maintenance, LeaveReview } from './pages/PortalPages'
+import BCFPortal from './portal/BCFPortal'
 
 // ── Admin
 import AdminDashboard from './pages/AdminDashboard'
@@ -77,17 +72,7 @@ export default function App() {
           <Route path="/" element={<StandaloneConfigurator />} />
 
           {/* Client Portal */}
-          <Route path="/portal" element={<PortalShell />}>
-            <Route index               element={<Dashboard />} />
-            <Route path="progress"     element={<BuildProgress />} />
-            <Route path="photos"       element={<Photos />} />
-            <Route path="delivery"     element={<Delivery />} />
-            <Route path="configure"    element={<ConfiguratorPage />} />
-            <Route path="extras"       element={<AddExtras />} />
-            <Route path="refer"        element={<ReferAFriend />} />
-            <Route path="maintenance"  element={<Maintenance />} />
-            <Route path="review"       element={<LeaveReview />} />
-          </Route>
+          <Route path="/portal" element={<BCFPortal />} />
 
           {/* Admin Dashboard */}
           <Route path="/admin" element={<AdminDashboard />} />
