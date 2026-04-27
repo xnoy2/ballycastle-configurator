@@ -11,6 +11,7 @@ import BCFPortal from './portal/BCFPortal'
 
 // ── Admin
 import AdminDashboard from './pages/AdminDashboard'
+import WorkerPanel    from './pages/WorkerPanel'
 
 // ── Standalone configurator
 import TopBar       from './components/TopBar'
@@ -76,6 +77,9 @@ export default function App() {
 
           {/* Admin Dashboard */}
           <Route path="/admin" element={<AdminDashboard />} />
+
+          {/* Worker Panel */}
+          <Route path="/worker" element={<WorkerPanel />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

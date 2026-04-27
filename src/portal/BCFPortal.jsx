@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
 const TABS = [
   { id: 'dashboard',    icon: '🏠', label: 'Dashboard'      },
   { id: 'configurator', icon: '🎮', label: 'Configurator'   },
   { id: 'progress',     icon: '🔨', label: 'Build Progress' },
-  { id: 'photos',       icon: '📸', label: 'Photos'         },
   { id: 'delivery',     icon: '🚚', label: 'Delivery'       },
   { id: 'extras',       icon: '⭐', label: 'Add Extras'     },
   { id: 'refer',        icon: '🎁', label: 'Refer a Friend' },
@@ -12,28 +12,138 @@ const TABS = [
   { id: 'review',       icon: '✏️', label: 'Leave a Review' },
 ]
 
-const STAGES = [
-  { id: 1, label: 'Order Confirmed',       date: '12 Mar 2026', done: true  },
-  { id: 2, label: 'Materials Ordered',     date: '18 Mar 2026', done: true  },
-  { id: 3, label: 'Groundwork',            date: '28 Mar 2026', done: true  },
-  { id: 4, label: 'Frame Construction',    date: 'In progress', done: false, active: true },
-  { id: 5, label: 'Accessories Installed', date: '~22 Apr 2026',done: false },
-  { id: 6, label: 'Final Inspection',      date: '~25 Apr 2026',done: false },
-  { id: 7, label: 'Handover Complete',     date: '~26 Apr 2026',done: false },
-]
-
 const EXTRAS = [
-  { id: 1, name: 'Nest Swing',          price: 89,  icon: '🪹', desc: 'Large 80cm nest swing, fits 2 kids' },
-  { id: 2, name: 'Wave Slide',          price: 145, icon: '🛝', desc: 'Fun wavy plastic slide in bright red' },
-  { id: 3, name: 'Rock Climbing Wall',  price: 120, icon: '🧗', desc: 'Bolt-on rock holds, various colours' },
-  { id: 4, name: 'Monkey Bars',         price: 199, icon: '🐒', desc: 'Pressure-treated timber monkey bars' },
-  { id: 5, name: 'Mud Kitchen',         price: 165, icon: '🍳', desc: 'Wooden mud kitchen with sink & hob' },
-  { id: 6, name: 'Safety Bark (1m³)',   price: 55,  icon: '🌿', desc: 'Play-grade certified safety bark' },
+  { id: 1, name: 'Nest Swing',         price: 89,  icon: '🪹', desc: 'Large 80cm nest swing, fits 2 kids' },
+  { id: 2, name: 'Wave Slide',         price: 145, icon: '🛝', desc: 'Fun wavy plastic slide in bright red' },
+  { id: 3, name: 'Rock Climbing Wall', price: 120, icon: '🧗', desc: 'Bolt-on rock holds, various colours' },
+  { id: 4, name: 'Monkey Bars',        price: 199, icon: '🐒', desc: 'Pressure-treated timber monkey bars' },
+  { id: 5, name: 'Mud Kitchen',        price: 165, icon: '🍳', desc: 'Wooden mud kitchen with sink & hob' },
+  { id: 6, name: 'Safety Bark (1m³)',  price: 55,  icon: '🌿', desc: 'Play-grade certified safety bark' },
 ]
 
 const ACCESSORIES = ['🪢 Rope Ladder', '🎯 Target Wall', '🛝 Slide', '🪹 Nest Swing', '🌿 Bark Border', '⛺ Den Kit']
 
+const SHARED_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+  .bcfp * { box-sizing: border-box; margin: 0; padding: 0; }
+  .bcfp ::-webkit-scrollbar { width: 6px; }
+  .bcfp ::-webkit-scrollbar-thumb { background: #8B5E3C55; border-radius: 3px; }
+  .bcfp .tab-btn { background: none; border: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; color: #4a3728; transition: all 0.18s; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .bcfp .tab-btn:hover { background: #fff8; }
+  .bcfp .tab-btn.active { background: #fff; color: #2e7d32; box-shadow: 0 2px 8px #0001; }
+  .bcfp .card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px #0001; }
+  .bcfp .btn-green { background: #2e7d32; color: #fff; border: none; border-radius: 10px; padding: 10px 20px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 15px; transition: background 0.15s; }
+  .bcfp .btn-green:hover { background: #1b5e20; }
+  .bcfp .btn-yellow { background: #FFD700; color: #3e2700; border: none; border-radius: 10px; padding: 10px 20px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 15px; }
+  .bcfp .btn-yellow:hover { background: #FFC200; }
+  .bcfp .progress-bar { height: 14px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+  .bcfp .progress-fill { height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 99px; transition: width 0.4s; }
+  .bcfp .stage-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0ede8; }
+  .bcfp .star-btn { background: none; border: none; font-size: 28px; cursor: pointer; transition: transform 0.1s; }
+  .bcfp .star-btn:hover { transform: scale(1.2); }
+  .bcfp .acc-chip { background: #e8f5e9; border: 2px dashed #4CAF50; border-radius: 10px; padding: 8px 14px; cursor: grab; font-size: 13px; font-weight: 700; color: #2e7d32; user-select: none; }
+  .bcfp .acc-chip:active { cursor: grabbing; opacity: 0.7; }
+  .bcfp .placed-item { position: absolute; background: #ffffffdd; border: 2px solid; border-radius: 8px; padding: 4px 8px; font-size: 12px; font-weight: 700; cursor: move; white-space: nowrap; }
+  .bcfp .extra-card { border: 2px solid #e8f0e0; border-radius: 14px; padding: 16px; background: #fff; transition: border-color 0.15s; }
+  .bcfp .extra-card:hover { border-color: #4CAF50; }
+  .bcfp .tag { display: inline-block; background: #e8f5e9; color: #2e7d32; border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 700; margin: 2px; }
+  @media (max-width: 700px) {
+    .bcfp .grid-2 { grid-template-columns: 1fr !important; }
+    .bcfp .grid-3 { grid-template-columns: 1fr 1fr !important; }
+  }
+`
+
+// ── Login Page ──────────────────────────────────────────────────────────────
+function PortalLogin() {
+  const [email,   setEmail]   = useState('')
+  const [sent,    setSent]    = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState('')
+
+  async function sendMagicLink(e) {
+    e.preventDefault()
+    if (!email.trim() || !email.includes('@')) { setError('Please enter a valid email.'); return }
+    setLoading(true)
+    setError('')
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href },
+    })
+    if (err) { setError(err.message); setLoading(false); return }
+    setSent(true)
+    setLoading(false)
+  }
+
+  return (
+    <div className="bcfp" style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1A2E44 0%, #2e5339 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <style>{SHARED_STYLES}</style>
+      <div style={{ background: '#fff', borderRadius: 20, padding: 40, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <img src="/images/bcf.png" alt="BCF" style={{ height: 60, marginBottom: 12 }} />
+          <h1 style={{ fontFamily: "'Fredoka One', cursive", fontSize: 24, color: '#1A2E44', margin: '0 0 4px' }}>Client Portal</h1>
+          <p style={{ fontSize: 13, color: '#888' }}>Ballycastle Climbing Frames</p>
+        </div>
+
+        {sent ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📧</div>
+            <h2 style={{ fontFamily: "'Fredoka One'", color: '#2e7d32', marginBottom: 8 }}>Check Your Email!</h2>
+            <p style={{ fontSize: 14, color: '#555', lineHeight: 1.6 }}>
+              We've sent a login link to <strong>{email}</strong>.<br />
+              Click the link in the email to access your portal.
+            </p>
+            <p style={{ fontSize: 12, color: '#aaa', marginTop: 12 }}>Didn't receive it? Check your spam folder.</p>
+          </div>
+        ) : (
+          <form onSubmit={sendMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                autoFocus
+                style={{ width: '100%', padding: '12px 14px', border: '2px solid #e0e0e0', borderRadius: 10, fontFamily: 'inherit', fontSize: 14, outline: 'none', transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = '#2e7d32'}
+                onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              />
+            </div>
+            {error && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{error}</p>}
+            <button className="btn-green" type="submit" disabled={loading} style={{ opacity: loading ? 0.6 : 1, fontSize: 15, padding: '13px' }}>
+              {loading ? 'Sending…' : '✉️ Send Login Link'}
+            </button>
+            <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', lineHeight: 1.5 }}>
+              We'll email you a secure link — no password needed.
+            </p>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Loading Screen ──────────────────────────────────────────────────────────
+function LoadingScreen() {
+  return (
+    <div className="bcfp" style={{ minHeight: '100vh', background: '#F0F7EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <style>{SHARED_STYLES}</style>
+      <div style={{ textAlign: 'center', color: '#2e7d32' }}>
+        <div style={{ width: 40, height: 40, border: '4px solid #c8e6c9', borderTopColor: '#2e7d32', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ fontFamily: "'Fredoka One', cursive", fontSize: 18 }}>Loading your portal…</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Portal ─────────────────────────────────────────────────────────────
 export default function BCFPortal() {
+  const [session,         setSession]         = useState(null)
+  const [authLoading,     setAuthLoading]     = useState(true)
+  const [profile,         setProfile]         = useState(null)
+  const [order,           setOrder]           = useState(null)
+  const [stages,          setStages]          = useState([])
   const [tab,             setTab]             = useState('dashboard')
   const [cart,            setCart]            = useState([])
   const [referCopied,     setReferCopied]     = useState(false)
@@ -45,9 +155,43 @@ export default function BCFPortal() {
   const [placed,          setPlaced]          = useState([
     { id: 'frame', label: '🏗️ Your Frame', x: 110, y: 80, color: '#8B5E3C' },
   ])
-  const [photos, setPhotos] = useState([])
   const canvasRef = useRef(null)
   const fileRef   = useRef(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) fetchData(session.user.id)
+      else setAuthLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (session) fetchData(session.user.id)
+      else { setAuthLoading(false) }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function fetchData(userId) {
+    setAuthLoading(true)
+
+    const [{ data: profileData }, { data: orderData }] = await Promise.all([
+      supabase.from('client_profiles').select('*').eq('id', userId).single(),
+      supabase.from('orders').select('*, worker:worker_profiles(*)').eq('client_id', userId).single(),
+    ])
+
+    if (orderData?.id) {
+      const { data: stagesData } = await supabase
+        .from('build_stages').select('*').eq('order_id', orderData.id).order('stage_number')
+      setStages(stagesData || [])
+    }
+
+    setProfile(profileData)
+    setOrder(orderData)
+    setAuthLoading(false)
+  }
 
   const addToCart = item => {
     if (!cart.find(c => c.id === item.id)) setCart([...cart, item])
@@ -61,68 +205,51 @@ export default function BCFPortal() {
     setDragging(null)
   }
 
-  const handlePhotoUpload = e => {
-    Array.from(e.target.files).forEach(f => {
-      const reader = new FileReader()
-      reader.onload = ev => setPhotos(p => [...p, { src: ev.target.result, name: f.name }])
-      reader.readAsDataURL(f)
-    })
-  }
+  if (authLoading) return <LoadingScreen />
+  if (!session)    return <PortalLogin />
+
+  // ── Derived values from real data ────────────────────────────────────────
+  const clientName    = profile?.name || session.user.email
+  const orderNumber   = order?.order_number || '—'
+  const doneCount     = stages.filter(s => s.status === 'done').length
+  const progressPct   = stages.length > 0 ? Math.round((doneCount / stages.length) * 100) : 0
+  const activeStage   = stages.find(s => s.status === 'in_progress') || stages.find(s => s.status === 'pending')
+  const installDate   = order?.installation_date
+    ? new Date(order.installation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'TBC'
+  const installWindow = order?.installation_window || 'TBC'
+  const address       = order?.address || '—'
+  const workerName    = order?.worker?.name  || 'BCF Team'
+  const workerPhone   = order?.worker?.phone || '+44 (0) 28 2076 9090'
 
   return (
     <div style={{ fontFamily: "'Nunito', sans-serif", background: '#F0F7EC', minHeight: '100vh' }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
-        .bcfp * { box-sizing: border-box; margin: 0; padding: 0; }
-        .bcfp ::-webkit-scrollbar { width: 6px; }
-        .bcfp ::-webkit-scrollbar-thumb { background: #8B5E3C55; border-radius: 3px; }
-        .bcfp .tab-btn { background: none; border: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; color: #4a3728; transition: all 0.18s; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
-        .bcfp .tab-btn:hover { background: #fff8; }
-        .bcfp .tab-btn.active { background: #fff; color: #2e7d32; box-shadow: 0 2px 8px #0001; }
-        .bcfp .card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px #0001; }
-        .bcfp .btn-green { background: #2e7d32; color: #fff; border: none; border-radius: 10px; padding: 10px 20px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 15px; transition: background 0.15s; }
-        .bcfp .btn-green:hover { background: #1b5e20; }
-        .bcfp .btn-yellow { background: #FFD700; color: #3e2700; border: none; border-radius: 10px; padding: 10px 20px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 15px; }
-        .bcfp .btn-yellow:hover { background: #FFC200; }
-        .bcfp .progress-bar { height: 14px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
-        .bcfp .progress-fill { height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 99px; transition: width 0.4s; }
-        .bcfp .stage-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0ede8; }
-        .bcfp .star-btn { background: none; border: none; font-size: 28px; cursor: pointer; transition: transform 0.1s; }
-        .bcfp .star-btn:hover { transform: scale(1.2); }
-        .bcfp .acc-chip { background: #e8f5e9; border: 2px dashed #4CAF50; border-radius: 10px; padding: 8px 14px; cursor: grab; font-size: 13px; font-weight: 700; color: #2e7d32; user-select: none; }
-        .bcfp .acc-chip:active { cursor: grabbing; opacity: 0.7; }
-        .bcfp .placed-item { position: absolute; background: #ffffffdd; border: 2px solid; border-radius: 8px; padding: 4px 8px; font-size: 12px; font-weight: 700; cursor: move; white-space: nowrap; }
-        .bcfp .extra-card { border: 2px solid #e8f0e0; border-radius: 14px; padding: 16px; background: #fff; transition: border-color 0.15s; }
-        .bcfp .extra-card:hover { border-color: #4CAF50; }
-        .bcfp .photo-box { border: 2px dashed #8B5E3C55; border-radius: 14px; padding: 30px; text-align: center; cursor: pointer; background: #fff; transition: background 0.15s; }
-        .bcfp .photo-box:hover { background: #f9f5ef; }
-        .bcfp .tag { display: inline-block; background: #e8f5e9; color: #2e7d32; border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 700; margin: 2px; }
-        @media (max-width: 700px) {
-          .bcfp .grid-2 { grid-template-columns: 1fr !important; }
-          .bcfp .grid-3 { grid-template-columns: 1fr 1fr !important; }
-          .bcfp .hide-mobile { display: none !important; }
-          .bcfp .nav-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        }
-      `}</style>
+      <style>{SHARED_STYLES}</style>
 
-      {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <div className="bcfp" style={{ background: 'linear-gradient(135deg, #1A2E44 0%, #2e5339 100%)', padding: '0 20px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, paddingBottom: 8 }}>
+      {/* ── HEADER ─────────────────────────────────────────────────── */}
+      <div className="bcfp" style={{ background: 'linear-gradient(135deg, #1A2E44 0%, #2e5339 100%)', padding: '0 20px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src="/images/bcf.png" alt="BCF" style={{ height: 40, width: 'auto' }} />
+            <img src="/images/bcf.png" alt="BCF" style={{ height: 36, width: 'auto' }} />
             <div>
-              <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 20, color: '#FFD700', letterSpacing: 1 }}>Ballycastle Climbing Frames</div>
-              <div style={{ color: '#a5d6a7', fontSize: 12, fontWeight: 600 }}>Client Portal</div>
+              <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 18, color: '#FFD700', letterSpacing: 1 }}>Ballycastle Climbing Frames</div>
+              <div style={{ color: '#a5d6a7', fontSize: 11, fontWeight: 600 }}>Client Portal</div>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>Welcome, Sarah & David! 👋</div>
-            <div style={{ color: '#81c784', fontSize: 12 }}>Order #BCF-2026-0847</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: '#fff', fontWeight: 800, fontSize: 13 }}>Welcome, {clientName}! 👋</div>
+              <div style={{ color: '#81c784', fontSize: 11 }}>Order #{orderNumber}</div>
+            </div>
+            <button onClick={() => supabase.auth.signOut()}
+              style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Sign Out
+            </button>
           </div>
         </div>
 
         {/* NAV TABS */}
-        <div className="bcfp nav-scroll" style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', gap: 4, flexWrap: 'wrap', paddingBottom: 8, borderTop: '1px solid #ffffff18', paddingTop: 8 }}>
+        <div className="bcfp" style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', gap: 4, flexWrap: 'wrap', paddingBottom: 8, borderTop: '1px solid #ffffff18', paddingTop: 8, overflowX: 'auto' }}>
           {TABS.map(t => (
             <button key={t.id} className={`bcfp tab-btn${tab === t.id ? ' active' : ''}`}
               style={{ color: tab === t.id ? '#2e7d32' : '#c8e6c9' }}
@@ -133,7 +260,7 @@ export default function BCFPortal() {
         </div>
       </div>
 
-      {/* ── CONTENT ────────────────────────────────────────────────────── */}
+      {/* ── CONTENT ────────────────────────────────────────────────── */}
       <div className="bcfp" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
 
         {/* DASHBOARD */}
@@ -142,17 +269,21 @@ export default function BCFPortal() {
             <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
               <div className="card" style={{ background: 'linear-gradient(135deg, #e8f5e9, #f1f8e9)', border: '2px solid #c8e6c9' }}>
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 20, color: '#2e7d32', marginBottom: 8 }}>🏗️ Your Build</div>
-                <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 14 }}>Frame Construction — 40% Complete</div>
-                <div className="progress-bar"><div className="progress-fill" style={{ width: '40%' }} /></div>
-                <div style={{ marginTop: 10, color: '#558b2f', fontWeight: 600, fontSize: 13 }}>📅 Next update in 48 hours</div>
+                <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 14 }}>
+                  {activeStage?.label || 'Complete'} — {progressPct}% Complete
+                </div>
+                <div className="progress-bar"><div className="progress-fill" style={{ width: `${progressPct}%` }} /></div>
+                <div style={{ marginTop: 10, color: '#558b2f', fontWeight: 600, fontSize: 13 }}>
+                  📅 {doneCount} of {stages.length} stages complete
+                </div>
                 <button className="btn-green" style={{ marginTop: 12, fontSize: 13 }} onClick={() => setTab('progress')}>View Progress →</button>
               </div>
 
               <div className="card" style={{ background: 'linear-gradient(135deg, #fff8e1, #fff3cd)', border: '2px solid #ffe082' }}>
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 20, color: '#e65100', marginBottom: 8 }}>📅 Installation Date</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#bf360c' }}>26 April 2026</div>
-                <div style={{ color: '#795548', fontSize: 13, fontWeight: 600, marginTop: 4 }}>10:00am – 2:00pm window</div>
-                <div style={{ color: '#8d6e63', fontSize: 12, marginTop: 6 }}>📍 14 Glenshesk Road, Ballycastle</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: '#bf360c' }}>{installDate}</div>
+                <div style={{ color: '#795548', fontSize: 13, fontWeight: 600, marginTop: 4 }}>{installWindow}</div>
+                {address !== '—' && <div style={{ color: '#8d6e63', fontSize: 12, marginTop: 6 }}>📍 {address}</div>}
                 <button className="btn-yellow" style={{ marginTop: 12, fontSize: 13 }} onClick={() => setTab('delivery')}>Delivery Details →</button>
               </div>
             </div>
@@ -191,9 +322,8 @@ export default function BCFPortal() {
                 </div>
               ))}
               <div style={{ textAlign: 'center', color: '#fff' }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>👷 Jamie Robinson</div>
-                <div style={{ fontSize: 13, color: '#81c784' }}>028 2044 0670</div>
-                <div style={{ fontSize: 11, color: '#80cbc4' }}>5 Fairhill St, Ballycastle</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>👷 {workerName}</div>
+                <div style={{ fontSize: 13, color: '#81c784' }}>{workerPhone}</div>
               </div>
             </div>
           </div>
@@ -223,7 +353,6 @@ export default function BCFPortal() {
                   {cart.length > 0 && <div style={{ marginTop: 8, fontWeight: 800, color: '#1b5e20' }}>Total: £{cart.reduce((s, c) => s + c.price, 0)}</div>}
                 </div>
               </div>
-
               <div>
                 <div className="card" style={{ marginBottom: 12 }}>
                   <div style={{ fontFamily: "'Fredoka One'", fontSize: 15, color: '#5BB8F5', marginBottom: 4 }}>🌿 Your Garden Canvas</div>
@@ -261,58 +390,35 @@ export default function BCFPortal() {
             <div className="card" style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontWeight: 800 }}>Overall Progress</span>
-                <span style={{ fontFamily: "'Fredoka One'", color: '#2e7d32', fontSize: 18 }}>40%</span>
+                <span style={{ fontFamily: "'Fredoka One'", color: '#2e7d32', fontSize: 18 }}>{progressPct}%</span>
               </div>
-              <div className="progress-bar"><div className="progress-fill" style={{ width: '40%' }} /></div>
+              <div className="progress-bar"><div className="progress-fill" style={{ width: `${progressPct}%` }} /></div>
             </div>
-            <div className="card">
-              {STAGES.map((s, i) => (
-                <div key={s.id} className="stage-row" style={{ borderBottom: i < STAGES.length - 1 ? '1px solid #f0ede8' : 'none' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0,
-                    background: s.done ? '#e8f5e9' : s.active ? '#fff8e1' : '#f5f5f5',
-                    border: `2px solid ${s.done ? '#4CAF50' : s.active ? '#FFD700' : '#e0e0e0'}` }}>
-                    {s.done ? '✅' : s.active ? '🔄' : '⏳'}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: s.done ? '#2e7d32' : s.active ? '#e65100' : '#9e9e9e' }}>{s.label}</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>{s.date}</div>
-                  </div>
-                  {s.active && <span className="tag" style={{ background: '#fff8e1', color: '#e65100' }}>In Progress</span>}
-                  {s.done  && <span className="tag">Done</span>}
-                </div>
-              ))}
-            </div>
-            <div className="card" style={{ marginTop: 20, background: '#e8f5e9', border: '2px solid #c8e6c9' }}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>📲 Get notified on each update</div>
-              <div style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>We'll email you when each stage is completed.</div>
-              <button className="btn-green">Enable Email Updates</button>
-            </div>
-          </div>
-        )}
-
-        {/* PHOTOS */}
-        {tab === 'photos' && (
-          <div>
-            <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1A2E44', marginBottom: 16 }}>📸 Your Photos</h2>
-            <div className="photo-box" onClick={() => fileRef.current?.click()} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 40 }}>📁</div>
-              <div style={{ fontWeight: 800, fontSize: 16, marginTop: 8 }}>Drop photos here or click to upload</div>
-              <div style={{ fontSize: 13, color: '#888' }}>Before, during or after shots — share the journey!</div>
-              <input ref={fileRef} type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
-            </div>
-            {photos.length === 0
-              ? <div className="card" style={{ textAlign: 'center', color: '#aaa', padding: 40 }}>No photos yet — upload your first one above!</div>
-              : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-                  {photos.map((p, i) => (
-                    <div key={i} style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px #0002' }}>
-                      <img src={p.src} alt={p.name} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
-                      <div style={{ padding: '6px 8px', background: '#fff', fontSize: 11, color: '#666', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+            {stages.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', color: '#aaa', padding: 40 }}>Build stages are being set up…</div>
+            ) : (
+              <div className="card">
+                {stages.map((s, i) => (
+                  <div key={s.id} className="stage-row" style={{ borderBottom: i < stages.length - 1 ? '1px solid #f0ede8' : 'none' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0,
+                      background: s.status === 'done' ? '#e8f5e9' : s.status === 'in_progress' ? '#fff8e1' : '#f5f5f5',
+                      border: `2px solid ${s.status === 'done' ? '#4CAF50' : s.status === 'in_progress' ? '#FFD700' : '#e0e0e0'}` }}>
+                      {s.status === 'done' ? '✅' : s.status === 'in_progress' ? '🔄' : '⏳'}
                     </div>
-                  ))}
-                </div>
-              )
-            }
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: s.status === 'done' ? '#2e7d32' : s.status === 'in_progress' ? '#e65100' : '#9e9e9e' }}>{s.label}</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>
+                        {s.status === 'done' && s.completed_at
+                          ? `Completed ${new Date(s.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                          : s.status === 'in_progress' ? 'In progress…' : 'Upcoming'}
+                      </div>
+                    </div>
+                    {s.status === 'in_progress' && <span className="tag" style={{ background: '#fff8e1', color: '#e65100' }}>In Progress</span>}
+                    {s.status === 'done'        && <span className="tag">Done</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -323,25 +429,27 @@ export default function BCFPortal() {
             <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
               <div className="card">
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#e65100', marginBottom: 12 }}>📅 Scheduled Date</div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#bf360c' }}>26 April 2026</div>
-                <div style={{ fontWeight: 700, color: '#795548', marginTop: 4 }}>10:00am – 2:00pm</div>
-                <div style={{ marginTop: 16, fontSize: 14 }}>
-                  <div style={{ fontWeight: 700 }}>📍 Installation Address</div>
-                  <div style={{ color: '#555', marginTop: 4 }}>14 Glenshesk Road<br />Ballycastle, BT54 6AY</div>
-                </div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: '#bf360c' }}>{installDate}</div>
+                <div style={{ fontWeight: 700, color: '#795548', marginTop: 4 }}>{installWindow}</div>
+                {address !== '—' && (
+                  <div style={{ marginTop: 16, fontSize: 14 }}>
+                    <div style={{ fontWeight: 700 }}>📍 Installation Address</div>
+                    <div style={{ color: '#555', marginTop: 4 }}>{address}</div>
+                  </div>
+                )}
               </div>
               <div className="card">
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1565c0', marginBottom: 12 }}>📝 Access & Notes</div>
                 <textarea style={{ width: '100%', border: '2px solid #e0e0e0', borderRadius: 10, padding: 10, fontFamily: 'inherit', fontSize: 13, resize: 'vertical', minHeight: 100 }}
                   placeholder="e.g. Side gate code is 1234, please park on driveway…"
-                  defaultValue="Side gate will be unlocked. Dog will be inside." />
+                  defaultValue={order?.access_notes || ''} />
                 <button className="btn-green" style={{ marginTop: 10, width: '100%' }}>Save Notes</button>
               </div>
               <div className="card" style={{ gridColumn: 'span 2', background: '#e3f2fd', border: '2px solid #90caf9' }}>
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 17, color: '#1565c0', marginBottom: 4 }}>👷 Your Installer</div>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>Jamie Robinson</div>
-                <div style={{ color: '#555', fontSize: 14 }}>028 2044 0670 · 5 Fairhill Street, Ballycastle</div>
-                <button className="btn-green" style={{ marginTop: 10 }}>📞 Call Jamie</button>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>{workerName}</div>
+                <div style={{ color: '#555', fontSize: 14 }}>{workerPhone}</div>
+                <button className="btn-green" style={{ marginTop: 10 }}>📞 Call {workerName.split(' ')[0]}</button>
               </div>
             </div>
           </div>
@@ -393,7 +501,7 @@ export default function BCFPortal() {
               <div style={{ fontWeight: 800, marginBottom: 8 }}>Your Referral Link</div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <div style={{ flex: 1, background: '#f5f5f5', borderRadius: 10, padding: '10px 14px', fontFamily: 'monospace', fontSize: 13, color: '#555' }}>
-                  bcf.co.uk/refer/SARAH2026
+                  bcf.co.uk/refer/{profile?.name?.split(' ')[0]?.toUpperCase() || 'YOU'}2026
                 </div>
                 <button className="btn-green" onClick={() => { setReferCopied(true); setTimeout(() => setReferCopied(false), 2000) }}>
                   {referCopied ? '✓ Copied!' : 'Copy'}
@@ -405,7 +513,7 @@ export default function BCFPortal() {
               </div>
             </div>
             <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-              {[['👤', 'Referrals Sent', '3'], ['✅', 'Converted', '1'], ['💰', 'Total Earned', '£50']].map(([icon, label, val]) => (
+              {[['👤', 'Referrals Sent', '0'], ['✅', 'Converted', '0'], ['💰', 'Total Earned', '£0']].map(([icon, label, val]) => (
                 <div key={label} className="card" style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 28 }}>{icon}</div>
                   <div style={{ fontFamily: "'Fredoka One'", fontSize: 24, color: '#2e7d32' }}>{val}</div>
@@ -423,7 +531,7 @@ export default function BCFPortal() {
             <div className="card" style={{ marginBottom: 20, background: '#e8f5e9', border: '2px solid #a5d6a7' }}>
               <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#2e7d32', marginBottom: 8 }}>✅ Free Annual Service Reminder</div>
               <div style={{ fontSize: 14, color: '#555', marginBottom: 16 }}>
-                We'll send you a reminder each year to check bolts, treat timber, and keep your frame safe. Completely free — just set your preferred month!
+                We'll send you a reminder each year to check bolts, treat timber, and keep your frame safe.
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div>
@@ -445,8 +553,8 @@ export default function BCFPortal() {
             </div>
             <div className="card">
               <div style={{ fontFamily: "'Fredoka One'", fontSize: 16, marginBottom: 12 }}>📋 Annual Maintenance Checklist</div>
-              {['Check and tighten all bolts and fixings', 'Re-treat timber with preservative oil or stain', 'Inspect rope ladders and swings for wear', 'Clear bark/safety surface and top up if needed', 'Check slide for cracks or sharp edges', 'Oil any metal hinges or chains'].map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderBottom: i < 5 ? '1px solid #f0ede8' : 'none' }}>
+              {['Check and tighten all bolts and fixings', 'Re-treat timber with preservative oil or stain', 'Inspect rope ladders and swings for wear', 'Clear bark/safety surface and top up if needed', 'Check slide for cracks or sharp edges', 'Oil any metal hinges or chains'].map((item, i, arr) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderBottom: i < arr.length - 1 ? '1px solid #f0ede8' : 'none' }}>
                   <span style={{ color: '#4CAF50', fontWeight: 800 }}>✓</span>
                   <span style={{ fontSize: 14 }}>{item}</span>
                 </div>
@@ -463,7 +571,7 @@ export default function BCFPortal() {
               <div className="card" style={{ textAlign: 'center', padding: 48, background: '#e8f5e9' }}>
                 <div style={{ fontSize: 56 }}>🎉</div>
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#2e7d32', marginTop: 12 }}>Thank You!</div>
-                <div style={{ color: '#555', marginTop: 8 }}>Your review means the world to us and helps other families find us!</div>
+                <div style={{ color: '#555', marginTop: 8 }}>Your review means the world to us!</div>
                 <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button className="btn-green" style={{ background: '#25D366' }}>Share on WhatsApp</button>
                   <button className="btn-green" style={{ background: '#1877f2' }}>Share on Facebook</button>
@@ -474,8 +582,7 @@ export default function BCFPortal() {
                 <div style={{ fontWeight: 800, marginBottom: 12 }}>How would you rate your BCF experience?</div>
                 <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
                   {[1, 2, 3, 4, 5].map(s => (
-                    <button key={s} className="star-btn" onClick={() => setReviewStars(s)}
-                      style={{ color: s <= reviewStars ? '#FFD700' : '#ccc' }}>★</button>
+                    <button key={s} className="star-btn" onClick={() => setReviewStars(s)} style={{ color: s <= reviewStars ? '#FFD700' : '#ccc' }}>★</button>
                   ))}
                 </div>
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>Tell us about your experience</div>
