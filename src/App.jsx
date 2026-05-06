@@ -10,8 +10,10 @@ import { useProductsContext } from './context/ProductsContext'
 import BCFPortal from './portal/BCFPortal'
 
 // ── Admin
-import AdminDashboard from './pages/AdminDashboard'
-import WorkerPanel    from './pages/WorkerPanel'
+import AdminDashboard    from './pages/AdminDashboard'
+import WorkerPanel       from './pages/WorkerPanel'
+import ReferralLanding   from './pages/ReferralLanding'
+import LoginPage         from './pages/LoginPage'
 
 // ── Standalone configurator
 import TopBar       from './components/TopBar'
@@ -64,24 +66,34 @@ function StandaloneConfigurator() {
   )
 }
 
+// Detect if we're on the configurator subdomain
+const isConfiguratorDomain = typeof window !== 'undefined' &&
+  window.location.hostname.includes('configurator')
+
 export default function App() {
   return (
     <BrowserRouter>
       <ProductsProvider>
         <Routes>
-          {/* Standalone configurator */}
-          <Route path="/" element={<StandaloneConfigurator />} />
-
-          {/* Client Portal */}
-          <Route path="/portal" element={<BCFPortal />} />
-
-          {/* Admin Dashboard */}
-          <Route path="/admin" element={<AdminDashboard />} />
-
-          {/* Worker Panel */}
-          <Route path="/worker" element={<WorkerPanel />} />
-
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {isConfiguratorDomain ? (
+            // ── Configurator domain: only serve the configurator ──
+            <>
+              <Route path="/" element={<StandaloneConfigurator />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          ) : (
+            // ── Portal domain: login + all dashboards ──
+            <>
+              <Route path="/"              element={<Navigate to="/login" replace />} />
+              <Route path="/login"         element={<LoginPage />} />
+              <Route path="/configurator"  element={<StandaloneConfigurator />} />
+              <Route path="/portal"        element={<BCFPortal />} />
+              <Route path="/admin"         element={<AdminDashboard />} />
+              <Route path="/worker"        element={<WorkerPanel />} />
+              <Route path="/refer/:code"   element={<ReferralLanding />} />
+              <Route path="*"              element={<Navigate to="/login" replace />} />
+            </>
+          )}
         </Routes>
       </ProductsProvider>
     </BrowserRouter>

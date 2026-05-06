@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -80,13 +80,13 @@ serve(async (req) => {
       <!-- Contact -->
       <p style="margin:0;font-size:14px;color:#555">Questions? Contact us at
         <a href="mailto:info@ballycastleclimbingframes.co.uk" style="color:#2e6b3e">info@ballycastleclimbingframes.co.uk</a>
-        or call <strong>+44 (0) 28 2076 9090</strong>.
+        or call <strong>028 2044 0670</strong>.
       </p>
     </div>
 
     <!-- Footer -->
     <div style="background:#1e4a2a;padding:16px 32px;text-align:center">
-      <p style="margin:0;color:#b4dcbe;font-size:12px">Ballycastle Climbing Frames &nbsp;&middot;&nbsp; +44 (0) 28 2076 9090 &nbsp;&middot;&nbsp; info@ballycastleclimbingframes.co.uk</p>
+      <p style="margin:0;color:#b4dcbe;font-size:12px">Ballycastle Climbing Frames &nbsp;&middot;&nbsp; 028 2044 0670 &nbsp;&middot;&nbsp; info@ballycastleclimbingframes.co.uk</p>
       <p style="margin:4px 0 0;font-size:11px;color:#6b9e79">This is an indicative estimate. Final pricing may vary based on site survey, delivery, and installation.</p>
     </div>
   </div>
@@ -127,3 +127,4 @@ serve(async (req) => {
     })
   }
 })
+

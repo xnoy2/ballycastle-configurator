@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+﻿import React, { useState, useCallback } from 'react'
 import { X, Send, Phone, Mail, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import './QuoteModal.css'
@@ -58,7 +58,7 @@ async function buildPDF({ name, email, phone, lineItems, totalPrice, sceneImage 
   doc.setTextColor(180, 220, 190)
   doc.text('ballycastleclimbingframes.co.uk', COL_R, 18, { align: 'right' })
   doc.text('info@ballycastleclimbingframes.co.uk', COL_R, 25, { align: 'right' })
-  doc.text('+44 (0) 28 2076 9090', COL_R, 32, { align: 'right' })
+  doc.text('028 2044 0670', COL_R, 32, { align: 'right' })
 
   y = 56
 
@@ -212,7 +212,7 @@ async function buildPDF({ name, email, phone, lineItems, totalPrice, sceneImage 
   doc.setFontSize(8)
   doc.setTextColor(180, 220, 190)
   doc.text('Ballycastle Climbing Frames  ·  ballycastleclimbingframes.co.uk', W / 2, footerY + 7, { align: 'center' })
-  doc.text('+44 (0) 28 2076 9090  ·  info@ballycastleclimbingframes.co.uk', W / 2, footerY + 13, { align: 'center' })
+  doc.text('028 2044 0670  ·  info@ballycastleclimbingframes.co.uk', W / 2, footerY + 13, { align: 'center' })
 
   return doc
 }
@@ -411,3 +411,4 @@ export default function QuoteModal({ lineItems, totalPrice, sceneImage, onClose 
     </div>
   )
 }
+

@@ -21,8 +21,8 @@
 .wp-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #2e7d32;
+  border: 3px solid rgba(249,200,0,0.25);
+  border-top-color: #F9C800;
   border-radius: 50%;
   animation: wp-spin 0.7s linear infinite;
 }
@@ -32,7 +32,7 @@
 .wp-sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: #1a2e44;
+  background: linear-gradient(180deg, #1E3070 0%, #192860 100%);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -55,13 +55,13 @@
 .wp-sidebar-title {
   font-size: 13px;
   font-weight: 700;
-  color: #FFD700;
+  color: #F9C800;
   line-height: 1.2;
 }
 
 .wp-sidebar-name {
   font-size: 11px;
-  color: #81c784;
+  color: rgba(249,200,0,0.6);
   margin-top: 1px;
 }
 
@@ -70,7 +70,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.35);
   padding: 14px 16px 6px;
 }
 
@@ -91,11 +91,11 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.wp-job-btn:hover { background: rgba(255,255,255,0.06); }
+.wp-job-btn:hover { background: rgba(255,255,255,0.07); }
 
 .wp-job-btn.active {
-  background: rgba(255,255,255,0.1);
-  border-left-color: #4CAF50;
+  background: rgba(249,200,0,0.12);
+  border-left-color: #F9C800;
 }
 
 .wp-job-btn-name {
@@ -119,9 +119,9 @@
   border-radius: 99px;
 }
 
-.wp-job-btn-status.done    { background: #e8f5e9; color: #2e7d32; }
-.wp-job-btn-status.active  { background: #fff8e1; color: #e65100; }
-.wp-job-btn-status.pending { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+.wp-job-btn-status.done    { background: rgba(249,200,0,0.18); color: #F9C800; }
+.wp-job-btn-status.active  { background: rgba(249,200,0,0.25); color: #F9C800; }
+.wp-job-btn-status.pending { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); }
 
 .wp-signout {
   margin-top: auto;
@@ -130,7 +130,7 @@
   border-top: 1px solid rgba(255,255,255,0.1);
   padding: 14px 16px;
   font-size: 13px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.4);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -162,13 +162,13 @@
   position: fixed;
   top: 20px;
   right: 24px;
-  background: #2e7d32;
-  color: #fff;
+  background: linear-gradient(135deg, #1E3070, #253080);
+  color: #F9C800;
   padding: 10px 20px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 16px rgba(30,48,112,0.35);
   z-index: 999;
   animation: wp-slide-in 0.2s ease;
 }
@@ -202,12 +202,13 @@
 }
 
 .wp-progress-badge {
-  background: #2e7d32;
-  color: #fff;
+  background: linear-gradient(135deg, #1E3070, #253080);
+  color: #F9C800;
   border-radius: 12px;
   padding: 10px 18px;
   text-align: center;
   flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(30,48,112,0.3);
 }
 
 .wp-progress-pct {
@@ -218,7 +219,7 @@
 
 .wp-progress-label {
   font-size: 11px;
-  opacity: 0.8;
+  opacity: 0.75;
   margin-top: 2px;
 }
 
@@ -232,9 +233,10 @@
 
 .wp-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  background: linear-gradient(90deg, #F9C800, #D4A800);
   border-radius: 99px;
   transition: width 0.4s;
+  box-shadow: 0 2px 6px rgba(249,200,0,0.4);
 }
 
 /* ── Grid ────────────────────────────────────────────────────────── */
@@ -255,10 +257,10 @@
 .wp-card-title {
   font-size: 15px;
   font-weight: 800;
-  color: #1e293b;
+  color: #1E3070;
   margin-bottom: 16px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 2px solid #FFFBE6;
 }
 
 /* ── Stages ──────────────────────────────────────────────────────── */
@@ -275,7 +277,7 @@
 }
 
 .wp-stage--done        { background: #f0fdf4; border-color: #bbf7d0; }
-.wp-stage--in_progress { background: #fffbeb; border-color: #fde68a; }
+.wp-stage--in_progress { background: #FFFBE6; border-color: #F9C800; }
 .wp-stage--pending     { background: #f8fafc; border-color: #e2e8f0; }
 
 .wp-stage-icon { font-size: 20px; flex-shrink: 0; }
@@ -297,8 +299,8 @@
 .wp-stage-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 .wp-btn-done {
-  background: #2e7d32;
-  color: #fff;
+  background: linear-gradient(135deg, #1E3070, #253080);
+  color: #F9C800;
   border: none;
   border-radius: 8px;
   padding: 6px 14px;
@@ -306,14 +308,14 @@
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s;
+  transition: opacity 0.15s, transform 0.1s;
 }
-.wp-btn-done:hover:not(:disabled) { background: #1b5e20; }
+.wp-btn-done:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
 .wp-btn-done:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .wp-btn-progress {
-  background: #f59e0b;
-  color: #fff;
+  background: #F9C800;
+  color: #1E3070;
   border: none;
   border-radius: 8px;
   padding: 6px 12px;
@@ -321,9 +323,9 @@
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s;
 }
-.wp-btn-progress:hover:not(:disabled) { background: #d97706; }
+.wp-btn-progress:hover:not(:disabled) { background: #D4A800; transform: translateY(-1px); }
 
 .wp-btn-undo {
   background: transparent;
@@ -350,12 +352,12 @@
 }
 .wp-detail-row:last-of-type { border-bottom: none; }
 .wp-detail-row span { color: #94a3b8; }
-.wp-detail-row strong { color: #1e293b; text-align: right; }
+.wp-detail-row strong { color: #1E3070; font-weight: 700; text-align: right; }
 
 .wp-access-notes {
   margin-top: 10px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  background: #FFFBE6;
+  border: 1px solid #F9C800;
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 12.5px;
@@ -411,17 +413,17 @@
   align-items: center;
   gap: 7px;
   padding: 10px 18px;
-  background: #2e7d32;
-  color: #fff;
+  background: linear-gradient(135deg, #1E3070, #253080);
+  color: #F9C800;
   border: none;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s;
+  transition: opacity 0.15s, transform 0.1s;
 }
-.wp-btn-primary:hover:not(:disabled) { background: #1b5e20; }
+.wp-btn-primary:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
 .wp-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Login ───────────────────────────────────────────────────────── */
@@ -430,17 +432,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a2e44 0%, #2e5339 100%);
+  background: linear-gradient(135deg, #1E3070 0%, #253080 100%);
   padding: 20px;
 }
 
 .wp-login-card {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 36px;
   width: 100%;
   max-width: 380px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  border-top: 4px solid #F9C800;
 }
 
 .wp-login-logo {
@@ -452,7 +455,7 @@
 .wp-login-card h1 {
   text-align: center;
   font-size: 22px;
-  color: #1a2e44;
+  color: #1E3070;
   margin: 0 0 4px;
 }
 
@@ -485,9 +488,12 @@
   font-size: 14px;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.wp-login-card input:focus { border-color: #2e7d32; }
+.wp-login-card input:focus {
+  border-color: #F9C800;
+  box-shadow: 0 0 0 3px rgba(249,200,0,0.15);
+}
 
 .wp-error {
   color: #dc2626;
