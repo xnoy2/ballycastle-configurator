@@ -128,7 +128,7 @@ export default function ReferralLanding() {
 
             <div className="rl-badge">
               <span className="rl-badge-icon">🌳</span>
-              <span className="rl-badge-text">Bespoke timber climbing frames · Local Northern Ireland team · Free consultation</span>
+              <span className="rl-badge-text">Ballycastle Climbing Frames · Custom-built for kids · Free consultation</span>
             </div>
 
             <hr className="rl-divider" />
