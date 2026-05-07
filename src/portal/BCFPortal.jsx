@@ -1861,23 +1861,22 @@ export default function BCFPortal() {
                   </button>
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="btn-green" style={{ background: '#25D366' }}
-                    onClick={() => {
-                      const msg = encodeURIComponent(`I'm using Ballycastle Climbing Frames — they built my kids' climbing frame and it's brilliant! 🌳 Use my link and we both benefit: ${referralLink}`)
-                      const phone = referForm.phone.replace(/\D/g, '')
-                      window.open(phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`, '_blank')
-                    }}>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`I'm using Ballycastle Climbing Frames — they built my kids' climbing frame and it's brilliant! 🌳 Use my link and we both benefit: ${referralLink}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-green"
+                    style={{ background: '#25D366', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  >
                     💬 Share on WhatsApp
-                  </button>
-                  <button className="btn-green" style={{ background: '#1565c0' }}
-                    onClick={() => {
-                      const to   = referForm.email ? encodeURIComponent(referForm.email) : ''
-                      const sub  = encodeURIComponent(`You should check out Ballycastle Climbing Frames!`)
-                      const body = encodeURIComponent(`Hi${referForm.name ? ` ${referForm.name.split(' ')[0]}` : ''}!\n\nI recently had a climbing frame built by Ballycastle Climbing Frames and it's fantastic. Thought you might be interested!\n\nUse my referral link and I'll earn £50 as a thank you:\n${referralLink}\n\nHope to see you there!`)
-                      window.open(`mailto:${to}?subject=${sub}&body=${body}`)
-                    }}>
+                  </a>
+                  <a
+                    href={`mailto:${referForm.email ? encodeURIComponent(referForm.email) : ''}?subject=${encodeURIComponent('You should check out Ballycastle Climbing Frames!')}&body=${encodeURIComponent(`Hi${referForm.name ? ` ${referForm.name.split(' ')[0]}` : ''}!\n\nI recently had a climbing frame built by Ballycastle Climbing Frames and it's fantastic. Thought you might be interested!\n\nUse my referral link and I'll earn £50 as a thank you:\n${referralLink}\n\nHope to see you there!`)}`}
+                    className="btn-green"
+                    style={{ background: '#1565c0', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  >
                     📧 Share by Email
-                  </button>
+                  </a>
                 </div>
               </div>
 
