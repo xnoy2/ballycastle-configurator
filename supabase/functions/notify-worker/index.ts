@@ -33,6 +33,7 @@ serve(async (req) => {
     }
 
     const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendKey) throw new Error('RESEND_API_KEY is not configured')
     const fromEmail = Deno.env.get('RESEND_FROM') ?? 'Ballycastle Climbing Frames <onboarding@resend.dev>'
     const workerPanelUrl = Deno.env.get('WORKER_URL') ?? 'https://portal.ballycastleclimbingframes.co.uk/worker'
 

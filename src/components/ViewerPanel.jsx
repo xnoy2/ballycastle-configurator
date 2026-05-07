@@ -288,7 +288,10 @@ export default function ViewerPanel({ totalPrice, warnings, activeGlbParts, hasA
         <Canvas
           camera={{ position:[4,3,5], fov:45 }}
           shadows
-          gl={{ antialias: true, preserveDrawingBuffer: true }}
+          gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'default', failIfMajorPerformanceCaveat: false }}
+          onCreated={({ gl }) => {
+            gl.domElement.addEventListener('webglcontextlost', e => e.preventDefault(), false)
+          }}
           style={{ background:'#c9e8f5' }}
         >
           <Suspense fallback={<Loader />}>

@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import LoadingScreen from '../components/LoadingScreen'
 import './WorkerPanel.css'
 
 
@@ -48,9 +49,13 @@ export default function WorkerPanel() {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (checking)  return <div className="wp-loading"><div className="wp-spinner" /><p>Loading…</p></div>
+  useEffect(() => {
+    if (!checking && !session && !resetMode) navigate('/login', { replace: true })
+  }, [checking, session, resetMode, navigate])
+
+  if (checking)  return <LoadingScreen subtitle="Loading worker panel…" />
   if (resetMode) return <WorkerSetPassword onDone={() => setResetMode(false)} />
-  if (!session)  { navigate('/login', { replace: true }); return null }
+  if (!session)  return null
   return <WorkerDashboard session={session} />
 }
 
@@ -155,7 +160,7 @@ function WorkerDashboard({ session }) {
       .from('worker_profiles')
       .select('*')
       .eq('id', session.user.id)
-      .single()
+      .maybeSingle()
     setProfile(profileData)
 
     const { data: jobsData } = await supabase
@@ -240,24 +245,26 @@ function WorkerDashboard({ session }) {
 
         <div className="wp-sidebar-section">My Jobs ({jobs.length})</div>
 
-        {jobs.length === 0 ? (
-          <div className="wp-no-jobs">No jobs assigned yet.</div>
-        ) : (
-          jobs.map(job => (
-            <button
-              key={job.id}
-              className={`wp-job-btn${selectedJob?.id === job.id ? ' active' : ''}`}
-              onClick={() => { playPop(); selectJob(job) }}
-            >
-              <div className="wp-job-btn-name">{job.client?.name || '—'}</div>
-              <div className="wp-job-btn-order">#{job.order_number}</div>
-              <div className={`wp-job-btn-status ${getOverallStatus(stages, job)}`}>
-                {getOverallStatus(stages, job) === 'done' ? '✅ Complete' :
-                 getOverallStatus(stages, job) === 'active' ? '🔄 In Progress' : '⏳ Pending'}
-              </div>
-            </button>
-          ))
-        )}
+        <div className="wp-jobs-row">
+          {jobs.length === 0 ? (
+            <div className="wp-no-jobs">No jobs assigned yet.</div>
+          ) : (
+            jobs.map(job => (
+              <button
+                key={job.id}
+                className={`wp-job-btn${selectedJob?.id === job.id ? ' active' : ''}`}
+                onClick={() => { playPop(); selectJob(job) }}
+              >
+                <div className="wp-job-btn-name">{job.client?.name || '—'}</div>
+                <div className="wp-job-btn-order">#{job.order_number}</div>
+                <div className={`wp-job-btn-status ${getOverallStatus(stages, job)}`}>
+                  {getOverallStatus(stages, job) === 'done' ? '✅ Complete' :
+                   getOverallStatus(stages, job) === 'active' ? '🔄 In Progress' : '⏳ Pending'}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
 
         <button className="wp-signout" onClick={() => supabase.auth.signOut()}>Sign Out</button>
       </aside>
@@ -905,7 +912,7 @@ function WorkerStageRow({ stage, prevDone, canUndo, saving, session, selectedJob
                         if (!task.completed) openCompleteTask(task)
                         else toggleTaskUncomplete(task)
                       }}
-                      style={{ width: 15, height: 15, flexShrink: 0, accentColor: '#1E3070', cursor: stage.status === 'done' ? 'default' : 'pointer' }}
+                      style={{ width: 20, height: 20, flexShrink: 0, accentColor: '#1E3070', cursor: stage.status === 'done' ? 'default' : 'pointer' }}
                     />
                     <span style={{ flex: 1, fontSize: 13, color: task.completed ? '#94a3b8' : '#1e293b', textDecoration: task.completed ? 'line-through' : 'none' }}>
                       {task.label}
@@ -924,7 +931,7 @@ function WorkerStageRow({ stage, prevDone, canUndo, saving, session, selectedJob
                 {/* Pending new task inputs */}
                 {pendingTasks.map(({ uid, value }) => (
                   <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', background: '#fff', border: '1px dashed #93c5fd', borderRadius: 8, marginBottom: 4 }}>
-                    <input type="checkbox" disabled style={{ width: 15, height: 15, flexShrink: 0, opacity: 0.3 }} />
+                    <input type="checkbox" disabled style={{ width: 20, height: 20, flexShrink: 0, opacity: 0.3 }} />
                     <input
                       autoFocus
                       type="text"

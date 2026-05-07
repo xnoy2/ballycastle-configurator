@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import LoadingScreen from '../components/LoadingScreen'
 import './AdminDashboard.css'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -73,14 +74,18 @@ export default function AdminDashboard() {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (checking) return <div className="adm-loading">Loading…</div>
-  if (!session)  { navigate('/login', { replace: true }); return null }
+  useEffect(() => {
+    if (!checking && !session) navigate('/login', { replace: true })
+  }, [checking, session, navigate])
+
+  if (checking) return <LoadingScreen subtitle="Loading admin dashboard…" />
+  if (!session)  return null
   return <AdminPanel session={session} />
 }
 
 // ─── main panel ────────────────────────────────────────────────────────────
 function AdminPanel({ session }) {
-  const [tab, setTab]                   = useState('dashboard')
+  const [tab, setTab]                   = useState(() => localStorage.getItem('admin_tab') || 'dashboard')
   const [subTab, setSubTab]             = useState('products')
   const [modules, setModules]           = useState([])
   const [selects, setSelects]           = useState([])
@@ -95,7 +100,7 @@ function AdminPanel({ session }) {
   const [extras, setExtras]             = useState([])
   const [reviews, setReviews]           = useState([])
   const [referrals, setReferrals]       = useState([])
-  const [adminCount, setAdminCount]     = useState(0)
+  const [admins, setAdmins]             = useState([])  // [{ user_id, role }]
   const [loading, setLoading]           = useState(true)
   const [saveMsg, setSaveMsg]           = useState('')
 
@@ -132,7 +137,7 @@ function AdminPanel({ session }) {
     setAllStages(stR.data    || [])
     setReviews(rvR.data      || [])
     setReferrals(rfR.data    || [])
-    setAdminCount(adR.data?.length || 0)
+    setAdmins(adR.data || [])
     setLoading(false)
   }
 
@@ -147,14 +152,13 @@ function AdminPanel({ session }) {
 
   const newQuoteCount     = quotes.filter(q => q.status === 'new').length
   const pendingReferrals  = referrals.filter(r => r.status === 'pending').length
-  const totalUsers        = workers.length + clients.length + adminCount
+  const totalUsers        = workers.length + clients.length + admins.length
 
   const ADMIN_TABS = [
     { id: 'dashboard',    icon: '📊',  label: 'Dashboard' },
     { id: 'configurator', icon: '⚙️',  label: 'Configurator' },
     { id: 'quotes',       icon: '📋',  label: 'Quotes',       badge: newQuoteCount },
-    { id: 'clients',      icon: '👥',  label: 'Clients',      badge: clients.length },
-    { id: 'workers',      icon: '👷',  label: 'Workers' },
+    { id: 'users',        icon: '👥',  label: 'Users',        badge: totalUsers },
     { id: 'orders',       icon: '📦',  label: 'Orders',       badge: orders.length },
     { id: 'extras',       icon: '⭐',  label: 'Extras',       badge: extras.length },
     { id: 'reviews',      icon: '💬',  label: 'Reviews',      badge: reviews.length },
@@ -182,10 +186,10 @@ function AdminPanel({ session }) {
         {/* ── Nav tabs ── */}
         <nav className="adm-tabs">
           {ADMIN_TABS.map(t => (
-            <button key={t.id} className={`adm-tab${tab === t.id ? ' active' : ''}`} onClick={() => { playPop(); setTab(t.id) }}>
+            <button key={t.id} className={`adm-tab${tab === t.id ? ' active' : ''}`} onClick={() => { playPop(); setTab(t.id); localStorage.setItem('admin_tab', t.id) }}>
               <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span>{t.icon}</span>
-                <span>{t.label}</span>
+                <span className="adm-tab-label">{t.label}</span>
                 {t.badge > 0 && (
                   <span style={{ background: tab === t.id ? '#1E3070' : '#ef4444', color: '#fff', borderRadius: 99, minWidth: 16, height: 16, padding: '0 4px', fontSize: 9, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
                     {t.badge}
@@ -225,24 +229,21 @@ function AdminPanel({ session }) {
               {[
                 { icon: '📋', label: 'Total Quotes',      value: quotes.length,    accent: '#F9C800', iconBg: '#FEF3C7', dest: 'quotes'    },
                 { icon: '📦', label: 'Total Orders',      value: orders.length,    accent: '#1E3070', iconBg: '#EDE9FE', dest: 'orders'    },
-                { icon: '👥', label: 'Total Users',       value: totalUsers,       accent: '#E85555', iconBg: '#FFE4E6', dest: 'clients'   },
+                { icon: '👥', label: 'Total Users',       value: totalUsers,       accent: '#E85555', iconBg: '#FFE4E6', dest: 'users'     },
                 { icon: '🎁', label: 'Pending Referrals', value: pendingReferrals, accent: '#10b981', iconBg: '#D1FAE5', dest: 'referrals' },
               ].map(s => (
                 <div key={s.dest}
-                  onClick={() => { playPop(); setTab(s.dest) }}
+                  onClick={() => { playPop(); setTab(s.dest); localStorage.setItem('admin_tab', s.dest) }}
                   className="adm-stat-card"
                   style={{ borderTop: `4px solid ${s.accent}` }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.1)' }}
                   onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}>
                   <div style={{ width: 62, height: 62, borderRadius: '50%', background: s.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 14px' }}>{s.icon}</div>
-                  <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 34, color: '#1E3070', lineHeight: 1 }}>{s.value}</div>
+                  <div className="adm-stat-value" style={{ fontFamily: "'Fredoka One', cursive", fontSize: 34, color: '#1E3070', lineHeight: 1 }}>{s.value}</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, fontWeight: 700 }}>{s.label}</div>
                 </div>
               ))}
             </div>
-            <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
-              Total Users = {clients.length} client{clients.length !== 1 ? 's' : ''} · {workers.length} worker{workers.length !== 1 ? 's' : ''} · {adminCount} admin{adminCount !== 1 ? 's' : ''}
-            </p>
           </>
         ) : tab === 'configurator' ? (
           subTab === 'products' ? (
@@ -258,10 +259,8 @@ function AdminPanel({ session }) {
           )
         ) : tab === 'quotes' ? (
           <QuotesTab quotes={quotes} setQuotes={setQuotes} flash={flash} />
-        ) : tab === 'clients' ? (
-          <ClientsTab clients={clients} setClients={setClients} flash={flash} reload={loadAll} />
-        ) : tab === 'workers' ? (
-          <WorkersTab workers={workers} setWorkers={setWorkers} flash={flash} reload={loadAll} />
+        ) : tab === 'users' ? (
+          <UsersTab clients={clients} setClients={setClients} workers={workers} setWorkers={setWorkers} admins={admins} session={session} flash={flash} reload={loadAll} />
         ) : tab === 'orders' ? (
           <OrdersTab orders={orders} setOrders={setOrders} workers={workers} allStages={allStages} flash={flash} reload={loadAll} />
         ) : tab === 'extras' ? (
@@ -396,6 +395,7 @@ function OptionsTable({ options, setOptions, flash }) {
   if (options.length === 0) return <p className="adm-empty">No options yet.</p>
 
   return (
+    <div className="adm-table-wrap">
     <table className="adm-table">
       <thead>
         <tr>
@@ -434,6 +434,7 @@ function OptionsTable({ options, setOptions, flash }) {
         ))}
       </tbody>
     </table>
+    </div>
   )
 }
 
@@ -738,6 +739,7 @@ function SurfacesTab({ surfaces, setSurfaces, flash }) {
         <h2>Ground Surfaces</h2>
         <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Add Surface</button>
       </div>
+      <div className="adm-table-wrap">
       <table className="adm-table">
         <thead>
           <tr><th>Key</th><th>Label</th><th>Price (£)</th><th>Visible</th></tr>
@@ -757,6 +759,7 @@ function SurfacesTab({ surfaces, setSurfaces, flash }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
@@ -779,6 +782,7 @@ function InstallTab({ installOpts, setInstallOpts, flash }) {
       <div className="adm-section-header">
         <h2>Installation Options</h2>
       </div>
+      <div className="adm-table-wrap">
       <table className="adm-table">
         <thead>
           <tr><th>Key</th><th>Label</th><th>Price (£)</th><th>Visible</th></tr>
@@ -798,6 +802,7 @@ function InstallTab({ installOpts, setInstallOpts, flash }) {
           ))}
         </tbody>
       </table>
+      </div>
       <p className="adm-hint">Prices update live in the configurator once saved.</p>
     </div>
   )
@@ -845,7 +850,7 @@ function QuotesTab({ quotes, setQuotes, flash }) {
               <span className="adm-quote-phone">{q.phone}</span>
             </div>
             <div className="adm-quote-right">
-              <strong className="adm-quote-total">£{q.total_price.toLocaleString()}</strong>
+              <strong className="adm-quote-total">£{(q.total_price ?? 0).toLocaleString()}</strong>
               <span className="adm-quote-date">
                 {new Date(q.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
@@ -874,7 +879,7 @@ function QuotesTab({ quotes, setQuotes, flash }) {
                     ))}
                     <tr className="adm-quote-total-row">
                       <td><strong>Total</strong></td>
-                      <td><strong>£{q.total_price.toLocaleString()}</strong></td>
+                      <td><strong>£{(q.total_price ?? 0).toLocaleString()}</strong></td>
                     </tr>
                   </tbody>
                 </table>
@@ -895,40 +900,63 @@ function QuotesTab({ quotes, setQuotes, flash }) {
   )
 }
 
-// ─── Clients Tab ───────────────────────────────────────────────────────────
-function ClientsTab({ clients, setClients, flash, reload }) {
+// ─── Users Tab (unified: clients + workers + admins) ──────────────────────
+function UsersTab({ clients, setClients, workers, setWorkers, admins, session, flash, reload }) {
+  // ── shared search / filter / pagination state ──
+  const [search,      setSearch]      = useState('')
+  const [roleFilter,  setRoleFilter]  = useState('all')
+  const [page,        setPage]        = useState(1)
+  const PAGE_SIZE = 10
+
+  // ── client state ──
   const [adding,        setAdding]        = useState(false)
-  const [form,          setForm]          = useState({ name: '', email: '', phone: '' })
-  const [err,           setErr]           = useState('')
-  const [busy,          setBusy]          = useState(false)
+  const [clientForm,    setClientForm]    = useState({ name: '', email: '', phone: '' })
+  const [clientErr,     setClientErr]     = useState('')
+  const [clientBusy,    setClientBusy]    = useState(false)
   const [linkResult,    setLinkResult]    = useState(null)   // { email, link }
   const [generatingFor, setGeneratingFor] = useState(null)   // email string
   const [tempPwdResult, setTempPwdResult] = useState(null)   // { email, password }
   const [sendingPwdFor, setSendingPwdFor] = useState(null)   // email string
   const [deleteTarget,  setDeleteTarget]  = useState(null)   // client object to delete
-  const [deleteConfirm, setDeleteConfirm] = useState('')     // typed name confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting,      setDeleting]      = useState(false)
 
+  // ── worker state ──
+  const [doConfirm, confirmModal]              = useConfirm()
+  const [addingWorker,         setAddingWorker]         = useState(false)
+  const [workerForm,           setWorkerForm]           = useState({ name: '', email: '', phone: '' })
+  const [workerErr,            setWorkerErr]            = useState('')
+  const [workerBusy,           setWorkerBusy]           = useState(false)
+  const [pwdWorker,            setPwdWorker]            = useState(null)
+  const [customPwd,            setCustomPwd]            = useState('')
+  const [generatedPwd,         setGeneratedPwd]         = useState('')
+  const [pwdBusy,              setPwdBusy]              = useState(false)
+  const [pwdErr,               setPwdErr]               = useState('')
+  const [copied,               setCopied]               = useState(false)
+  const [workerLinkResult,     setWorkerLinkResult]     = useState(null)
+  const [generatingWorkerLink, setGeneratingWorkerLink] = useState(null)
+
+  // ── client actions ──
   async function createClient(e) {
     e.preventDefault()
-    if (!form.name.trim() || !form.email.trim()) { setErr('Name and email are required.'); return }
-    setBusy(true); setErr('')
+    if (!clientForm.name.trim() || !clientForm.email.trim()) { setClientErr('Name and email are required.'); return }
+    setClientBusy(true); setClientErr('')
     const { data, error } = await supabase.functions.invoke('create-client', {
       body: {
-        first_name:  form.name.split(' ')[0],
-        last_name:   form.name.split(' ').slice(1).join(' '),
-        email:       form.email.trim(),
-        phone:       form.phone.trim(),
+        first_name:  clientForm.name.split(' ')[0],
+        last_name:   clientForm.name.split(' ').slice(1).join(' '),
+        email:       clientForm.email.trim(),
+        phone:       clientForm.phone.trim(),
         send_email:  false,
         redirect_to: `${window.location.origin}/portal`,
       }
     })
-    setBusy(false)
-    if (error) { setErr(error.message); return }
+    setClientBusy(false)
+    if (error) { setClientErr(error.message); return }
     setAdding(false)
-    setForm({ name: '', email: '', phone: '' })
+    setClientForm({ name: '', email: '', phone: '' })
     reload()
-    if (data?.magicLink) setLinkResult({ email: form.email.trim(), link: data.magicLink })
+    if (data?.magicLink) setLinkResult({ email: clientForm.email.trim(), link: data.magicLink })
     else flash('Client account created')
   }
 
@@ -946,9 +974,9 @@ function ClientsTab({ clients, setClients, flash, reload }) {
     setSendingPwdFor(client.email)
     const { data, error } = await supabase.functions.invoke('send-temp-password', {
       body: {
-        userId:   client.id,
-        email:    client.email,
-        name:     client.name || client.email,
+        userId:    client.id,
+        email:     client.email,
+        name:      client.name || client.email,
         portalUrl: `${window.location.origin}/portal`,
       },
     })
@@ -960,195 +988,23 @@ function ClientsTab({ clients, setClients, flash, reload }) {
   async function deleteClient() {
     if (!deleteTarget) return
     setDeleting(true)
-    const { data: order } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('client_id', deleteTarget.id)
-      .maybeSingle()
-
-    const { error } = await supabase.functions.invoke('ghl-opportunity-deleted', {
-      body: order?.id ? { orderId: order.id } : { clientId: deleteTarget.id },
-    })
+    // Delete DB record first (FK cascades to orders, payments, etc.)
+    const { error: dbErr } = await supabase
+      .from('client_profiles')
+      .delete()
+      .eq('id', deleteTarget.id)
+    if (dbErr) { setDeleting(false); flash('Delete failed — could not remove client data'); return }
+    // Remove auth account
+    await supabase.functions.invoke('delete-user', { body: { user_id: deleteTarget.id } })
     setDeleting(false)
-    if (error) { flash('Delete failed — check function logs'); return }
+    const name = deleteTarget.name || deleteTarget.email
     setDeleteTarget(null)
     setDeleteConfirm('')
     reload()
-    flash(`✅ ${deleteTarget.name} and all their data have been deleted.`)
+    flash(`✅ ${name} and all their data have been deleted.`)
   }
 
-  return (
-    <div className="adm-section">
-      {/* Magic link result modal */}
-      {linkResult && (
-        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setLinkResult(null) }}>
-          <div className="adm-modal" style={{ maxWidth: 520 }}>
-            <h3>🔗 Client Login Link</h3>
-            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14 }}>
-              Share this link with <strong>{linkResult.email}</strong> — it logs them straight into the portal. Valid for 24 hours.
-            </p>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#f1f5f9', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
-              <input readOnly value={linkResult.link} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: '#334155', outline: 'none' }} />
-              <button className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px', flexShrink: 0 }}
-                onClick={() => { navigator.clipboard.writeText(linkResult.link); flash('Copied!') }}>
-                Copy
-              </button>
-            </div>
-            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>After 24 hours, generate a new link from this screen.</p>
-            <div className="adm-modal-actions">
-              <button className="adm-btn-ghost" onClick={() => setLinkResult(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {tempPwdResult && (
-        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setTempPwdResult(null) }}>
-          <div className="adm-modal" style={{ maxWidth: 480 }}>
-            <h3>✅ Temp Password Sent</h3>
-            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
-              An email has been sent to <strong>{tempPwdResult.email}</strong> with their temporary password and a link to the portal.
-            </p>
-            <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Temp Password (admin copy)</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <code style={{ flex: 1, fontSize: 20, fontWeight: 800, color: '#1E3070', letterSpacing: '0.1em' }}>{tempPwdResult.password}</code>
-                <button className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px', flexShrink: 0 }}
-                  onClick={() => { navigator.clipboard.writeText(tempPwdResult.password); flash('Copied!') }}>
-                  Copy
-                </button>
-              </div>
-            </div>
-            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>
-              The client should log in and change this password from their portal settings.
-            </p>
-            <div className="adm-modal-actions">
-              <button className="adm-btn-ghost" onClick={() => setTempPwdResult(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Delete client confirmation modal */}
-      {deleteTarget && (
-        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setDeleteTarget(null); setDeleteConfirm('') } }}>
-          <div className="adm-modal" style={{ maxWidth: 480, borderTop: '4px solid #dc2626' }}>
-            <h3 style={{ color: '#dc2626' }}>⚠️ Delete Client & All Data</h3>
-            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 8, lineHeight: 1.6 }}>
-              This will permanently delete <strong>{deleteTarget.name}</strong> and everything associated with their build:
-            </p>
-            <ul style={{ fontSize: 12, color: '#475569', marginBottom: 16, paddingLeft: 18, lineHeight: 2 }}>
-              <li>All build stages and tasks</li>
-              <li>All photos and files (storage + records)</li>
-              <li>All payments and documents</li>
-              <li>All reminders, reviews and notifications</li>
-              <li>All referrals and extra requests</li>
-              <li>Their portal login account</li>
-            </ul>
-            <p style={{ fontSize: 13, color: '#dc2626', fontWeight: 700, marginBottom: 10 }}>
-              This cannot be undone. Type <strong>{deleteTarget.name}</strong> to confirm.
-            </p>
-            <input
-              autoFocus
-              value={deleteConfirm}
-              onChange={e => setDeleteConfirm(e.target.value)}
-              placeholder={deleteTarget.name}
-              style={{ width: '100%', padding: '10px 12px', border: '2px solid #fca5a5', borderRadius: 8, fontSize: 13, marginBottom: 16, outline: 'none', fontFamily: 'inherit' }}
-              onFocus={e => { e.target.style.borderColor = '#dc2626' }}
-              onBlur={e => { e.target.style.borderColor = '#fca5a5' }}
-            />
-            <div className="adm-modal-actions">
-              <button
-                className="adm-btn-primary"
-                style={{ background: '#dc2626' }}
-                disabled={deleteConfirm.trim() !== deleteTarget.name.trim() || deleting}
-                onClick={deleteClient}>
-                {deleting ? 'Deleting…' : '🗑️ Delete Everything'}
-              </button>
-              <button className="adm-btn-ghost" onClick={() => { setDeleteTarget(null); setDeleteConfirm('') }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {adding && (
-        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setAdding(false) }}>
-          <div className="adm-modal">
-            <h3>Create Client Account</h3>
-            <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
-              Creates the account silently — no email is sent. You'll get a login link to share with the client manually.
-            </p>
-            <form className="adm-modal-form" onSubmit={createClient}>
-              <label>Full Name <input autoFocus value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Sarah & David Henderson" /></label>
-              <label>Email <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="sarah@example.com" /></label>
-              <label>Phone <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="07911 123456" /></label>
-              {err && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{err}</p>}
-              <div className="adm-modal-actions">
-                <button type="submit" className="adm-btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create & Get Login Link'}</button>
-                <button type="button" className="adm-btn-ghost" onClick={() => { setAdding(false); setErr('') }}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      <div className="adm-section-header">
-        <h2>Clients ({clients.length})</h2>
-        <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Create Client</button>
-      </div>
-      <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 12 }}>
-        Clients are created automatically via GHL webhook when an opportunity reaches "Order Confirmed". Use the button above to create manually if needed.
-      </p>
-      {clients.length === 0 ? (
-        <p style={{ color: '#94a3b8', fontSize: 13 }}>No clients yet.</p>
-      ) : (
-        <table className="adm-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Created</th><th></th></tr></thead>
-          <tbody>
-            {clients.map(c => (
-              <tr key={c.id}>
-                <td style={{ fontWeight: 600 }}>{c.name}</td>
-                <td>{c.email}</td>
-                <td>{c.phone || '—'}</td>
-                <td style={{ color: '#94a3b8', fontSize: 12 }}>{new Date(c.created_at).toLocaleDateString('en-GB')}</td>
-                <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                    disabled={generatingFor === c.email}
-                    onClick={() => getLoginLink(c.email)}>
-                    {generatingFor === c.email ? '…' : '🔗 Login Link'}
-                  </button>
-                  <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                    disabled={sendingPwdFor === c.email}
-                    onClick={() => sendTempPassword(c)}>
-                    {sendingPwdFor === c.email ? '…' : '🔑 Temp Password'}
-                  </button>
-                  <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#dc2626', borderColor: '#fca5a5' }}
-                    onClick={() => { setDeleteTarget(c); setDeleteConfirm('') }}>
-                    🗑️ Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  )
-}
-
-// ─── Workers Tab ───────────────────────────────────────────────────────────
-function WorkersTab({ workers, setWorkers, flash, reload }) {
-  const [doConfirm, confirmModal] = useConfirm()
-  const [adding,        setAdding]        = useState(false)
-  const [form,          setForm]          = useState({ name: '', email: '', phone: '' })
-  const [err,           setErr]           = useState('')
-  const [busy,          setBusy]          = useState(false)
-  const [pwdWorker,     setPwdWorker]     = useState(null)   // worker being reset
-  const [customPwd,     setCustomPwd]     = useState('')
-  const [generatedPwd,  setGeneratedPwd]  = useState('')
-  const [pwdBusy,       setPwdBusy]       = useState(false)
-  const [pwdErr,        setPwdErr]        = useState('')
-  const [copied,        setCopied]        = useState(false)
-  const [workerLinkResult, setWorkerLinkResult] = useState(null)  // { email, link }
-  const [generatingWorkerLink, setGeneratingWorkerLink] = useState(null)
-
+  // ── worker actions ──
   async function getWorkerLoginLink(email) {
     setGeneratingWorkerLink(email)
     const { data, error } = await supabase.functions.invoke('get-magic-link', {
@@ -1207,67 +1063,207 @@ function WorkersTab({ workers, setWorkers, flash, reload }) {
 
   async function createWorker(e) {
     e.preventDefault()
-    if (!form.name.trim() || !form.email.trim()) { setErr('Name and email are required.'); return }
-    setBusy(true); setErr('')
-
-    // 1. Create auth user
-    const { data: authData, error: authErr } = await supabase.auth.admin
-      ? { data: null, error: { message: 'Use Supabase dashboard to invite worker' } }
-      : { data: null, error: null }
-
-    // Invite via magic link — worker gets email to access /worker
+    if (!workerForm.name.trim() || !workerForm.email.trim()) { setWorkerErr('Name and email are required.'); return }
+    setWorkerBusy(true); setWorkerErr('')
     const { data, error } = await supabase.functions.invoke('create-client', {
       body: {
-        first_name:  form.name.split(' ')[0],
-        last_name:   form.name.split(' ').slice(1).join(' '),
-        email:       form.email.trim(),
-        phone:       form.phone.trim(),
+        first_name:  workerForm.name.split(' ')[0],
+        last_name:   workerForm.name.split(' ').slice(1).join(' '),
+        email:       workerForm.email.trim(),
+        phone:       workerForm.phone.trim(),
         role:        'worker',
+        send_email:  false,
         redirect_to: `${window.location.origin}/worker`,
       }
     })
-
-    if (error) { setErr(error.message); setBusy(false); return }
-    flash('Worker invited — they will receive a login email.')
-    setAdding(false)
-    setForm({ name: '', email: '', phone: '' })
+    if (error) { setWorkerErr(error.message); setWorkerBusy(false); return }
+    flash('Worker added — use "Set & Email Password" in Users to send their credentials.')
+    setAddingWorker(false)
+    setWorkerForm({ name: '', email: '', phone: '' })
     reload()
-    setBusy(false)
+    setWorkerBusy(false)
   }
 
   async function deleteWorker(worker) {
     if (!await doConfirm(`Remove ${worker.name} as a worker?`, 'Remove')) return
     await supabase.from('worker_profiles').delete().eq('id', worker.id)
     await supabase.from('user_roles').delete().eq('user_id', worker.id)
+    // Delete the auth user so the worker can no longer log in
+    await supabase.functions.invoke('delete-user', { body: { user_id: worker.id } }).catch(() => {})
     setWorkers(p => p.filter(w => w.id !== worker.id))
     flash('Worker removed')
   }
 
+  // ── build unified list ──
+  const adminEntries = (admins || []).map(a => ({
+    _type:   'admin',
+    id:      a.user_id,
+    name:    a.user_id === session?.user?.id ? (session.user.email?.split('@')[0] || 'Admin') : 'Admin',
+    email:   a.user_id === session?.user?.id ? (session.user.email || '—') : '—',
+    created: null,
+  }))
+
+  const allUsers = [
+    ...clients.map(c => ({ _type: 'client', id: c.id, name: c.name, email: c.email, phone: c.phone, created: c.created_at, _raw: c })),
+    ...workers.map(w => ({ _type: 'worker', id: w.id, name: w.name, email: w.email, phone: w.phone, created: w.created_at, _raw: w })),
+    ...adminEntries,
+  ]
+
+  const q = search.toLowerCase()
+  const visible = allUsers.filter(u => {
+    if (roleFilter !== 'all' && u._type !== roleFilter) return false
+    if (q && !(u.name || '').toLowerCase().includes(q) && !(u.email || '').toLowerCase().includes(q)) return false
+    return true
+  })
+
+  const totalPages  = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+  const safePage    = Math.min(page, totalPages)
+  const paginated   = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  function resetPage() { setPage(1) }
+
+  const BADGE = {
+    client: { background: '#dbeafe', color: '#1e40af', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 700 },
+    worker: { background: '#fef3c7', color: '#92400e', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 700 },
+    admin:  { background: '#fee2e2', color: '#991b1b', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 700 },
+  }
 
   return (
     <div className="adm-section">
       {confirmModal}
+
+      {/* ── Client login link modal ── */}
+      {linkResult && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setLinkResult(null) }}>
+          <div className="adm-modal" style={{ maxWidth: 520 }}>
+            <h3>🔗 Client Login Link</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14 }}>
+              Share this link with <strong>{linkResult.email}</strong> — it logs them straight into the portal. Valid for 24 hours.
+            </p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#f1f5f9', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+              <input readOnly value={linkResult.link} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: '#334155', outline: 'none' }} />
+              <button className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px', flexShrink: 0 }}
+                onClick={() => { navigator.clipboard.writeText(linkResult.link); flash('Copied!') }}>
+                Copy
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>After 24 hours, generate a new link from this screen.</p>
+            <div className="adm-modal-actions">
+              <button className="adm-btn-ghost" onClick={() => setLinkResult(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Temp password result modal ── */}
+      {tempPwdResult && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setTempPwdResult(null) }}>
+          <div className="adm-modal" style={{ maxWidth: 480 }}>
+            <h3>✅ Temp Password Sent</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+              An email has been sent to <strong>{tempPwdResult.email}</strong> with their temporary password and a link to the portal.
+            </p>
+            <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Temp Password (admin copy)</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <code style={{ flex: 1, fontSize: 20, fontWeight: 800, color: '#1E3070', letterSpacing: '0.1em' }}>{tempPwdResult.password}</code>
+                <button className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px', flexShrink: 0 }}
+                  onClick={() => { navigator.clipboard.writeText(tempPwdResult.password); flash('Copied!') }}>
+                  Copy
+                </button>
+              </div>
+            </div>
+            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>
+              The client should log in and change this password from their portal settings.
+            </p>
+            <div className="adm-modal-actions">
+              <button className="adm-btn-ghost" onClick={() => setTempPwdResult(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete client confirmation modal ── */}
+      {deleteTarget && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setDeleteTarget(null); setDeleteConfirm('') } }}>
+          <div className="adm-modal" style={{ maxWidth: 480, borderTop: '4px solid #dc2626' }}>
+            <h3 style={{ color: '#dc2626' }}>⚠️ Delete Client & All Data</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 8, lineHeight: 1.6 }}>
+              This will permanently delete <strong>{deleteTarget.name}</strong> and everything associated with their build:
+            </p>
+            <ul style={{ fontSize: 12, color: '#475569', marginBottom: 16, paddingLeft: 18, lineHeight: 2 }}>
+              <li>All build stages and tasks</li>
+              <li>All photos and files (storage + records)</li>
+              <li>All payments and documents</li>
+              <li>All reminders, reviews and notifications</li>
+              <li>All referrals and extra requests</li>
+              <li>Their portal login account</li>
+            </ul>
+            <p style={{ fontSize: 13, color: '#dc2626', fontWeight: 700, marginBottom: 10 }}>
+              This cannot be undone. Type <strong>{deleteTarget.name}</strong> to confirm.
+            </p>
+            <input
+              autoFocus
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              placeholder={deleteTarget.name}
+              style={{ width: '100%', padding: '10px 12px', border: '2px solid #fca5a5', borderRadius: 8, fontSize: 13, marginBottom: 16, outline: 'none', fontFamily: 'inherit' }}
+              onFocus={e => { e.target.style.borderColor = '#dc2626' }}
+              onBlur={e => { e.target.style.borderColor = '#fca5a5' }}
+            />
+            <div className="adm-modal-actions">
+              <button
+                className="adm-btn-primary"
+                style={{ background: '#dc2626' }}
+                disabled={deleteConfirm.trim() !== deleteTarget.name.trim() || deleting}
+                onClick={deleteClient}>
+                {deleting ? 'Deleting…' : '🗑️ Delete Everything'}
+              </button>
+              <button className="adm-btn-ghost" onClick={() => { setDeleteTarget(null); setDeleteConfirm('') }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Client modal ── */}
       {adding && (
         <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setAdding(false) }}>
           <div className="adm-modal">
-            <h3>Add Worker</h3>
-            <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
-              Worker will receive an email to access the Worker Panel at /worker.
-            </p>
-            <form className="adm-modal-form" onSubmit={createWorker}>
-              <label>Full Name <input autoFocus value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Jamie Robinson" /></label>
-              <label>Email <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="jamie@bcf.co.uk" /></label>
-              <label>Phone <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="028 2044 0670" /></label>
-              {err && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{err}</p>}
+            <h3>Create Client Account</h3>
+            <form className="adm-modal-form" onSubmit={createClient}>
+              <label>Full Name <input autoFocus value={clientForm.name} onChange={e => setClientForm(p => ({ ...p, name: e.target.value }))} placeholder="Sarah & David Henderson" /></label>
+              <label>Email <input type="email" value={clientForm.email} onChange={e => setClientForm(p => ({ ...p, email: e.target.value }))} placeholder="sarah@example.com" /></label>
+              <label>Phone <input value={clientForm.phone} onChange={e => setClientForm(p => ({ ...p, phone: e.target.value }))} placeholder="07911 123456" /></label>
+              {clientErr && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{clientErr}</p>}
               <div className="adm-modal-actions">
-                <button type="submit" className="adm-btn-primary" disabled={busy}>{busy ? 'Adding…' : 'Add Worker'}</button>
-                <button type="button" className="adm-btn-ghost" onClick={() => { setAdding(false); setErr('') }}>Cancel</button>
+                <button type="submit" className="adm-btn-primary" disabled={clientBusy}>{clientBusy ? 'Creating…' : 'Create & Get Login Link'}</button>
+                <button type="button" className="adm-btn-ghost" onClick={() => { setAdding(false); setClientErr('') }}>Cancel</button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* ── Set Password Modal ── */}
+
+      {/* ── Add Worker modal ── */}
+      {addingWorker && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setAddingWorker(false) }}>
+          <div className="adm-modal">
+            <h3>Add Worker</h3>
+            <form className="adm-modal-form" onSubmit={createWorker}>
+              <label>Full Name <input autoFocus value={workerForm.name} onChange={e => setWorkerForm(p => ({ ...p, name: e.target.value }))} placeholder="Jamie Robinson" /></label>
+              <label>Email <input type="email" value={workerForm.email} onChange={e => setWorkerForm(p => ({ ...p, email: e.target.value }))} placeholder="jamie@bcf.co.uk" /></label>
+              <label>Phone <input value={workerForm.phone} onChange={e => setWorkerForm(p => ({ ...p, phone: e.target.value }))} placeholder="028 2044 0670" /></label>
+              {workerErr && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{workerErr}</p>}
+              <div className="adm-modal-actions">
+                <button type="submit" className="adm-btn-primary" disabled={workerBusy}>{workerBusy ? 'Adding…' : 'Add Worker'}</button>
+                <button type="button" className="adm-btn-ghost" onClick={() => { setAddingWorker(false); setWorkerErr('') }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Set Worker Password modal ── */}
       {pwdWorker && (
         <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setPwdWorker(null) }}>
           <div className="adm-modal">
@@ -1275,7 +1271,6 @@ function WorkersTab({ workers, setWorkers, flash, reload }) {
             <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
               Set a temporary password, then share it with the worker directly (phone, WhatsApp, etc).
             </p>
-
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <input
                 className="adm-inline-input"
@@ -1289,7 +1284,6 @@ function WorkersTab({ workers, setWorkers, flash, reload }) {
                 ⚡ Generate
               </button>
             </div>
-
             {customPwd && (
               <div style={{ background: '#FFFDE7', border: '1px solid #FFF1AA', borderRadius: 10, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 17, fontWeight: 800, letterSpacing: 2, color: '#1E3070' }}>{customPwd}</span>
@@ -1298,9 +1292,7 @@ function WorkersTab({ workers, setWorkers, flash, reload }) {
                 </button>
               </div>
             )}
-
             {pwdErr && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>{pwdErr}</p>}
-
             <div className="adm-modal-actions">
               <button className="adm-btn-primary" onClick={() => applyPassword(false)} disabled={pwdBusy}>
                 {pwdBusy ? 'Setting…' : '✅ Set Password'}
@@ -1314,11 +1306,7 @@ function WorkersTab({ workers, setWorkers, flash, reload }) {
         </div>
       )}
 
-      <div className="adm-section-header">
-        <h2>Workers ({workers.length})</h2>
-        <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Add Worker</button>
-      </div>
-      {/* Worker login link result */}
+      {/* ── Worker login link result banner ── */}
       {workerLinkResult && (
         <div style={{ background: '#FFFDE7', border: '1.5px solid #FFD740', borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: '#1E3070', marginBottom: 8 }}>
@@ -1336,37 +1324,153 @@ function WorkersTab({ workers, setWorkers, flash, reload }) {
         </div>
       )}
 
-      {workers.length === 0 ? (
-        <p style={{ color: '#94a3b8', fontSize: 13 }}>No workers yet.</p>
+      {/* ── Header: title + add buttons ── */}
+      <div className="adm-section-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <h2>Users ({allUsers.length})</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Add Client</button>
+          <button className="adm-btn-ghost" onClick={() => setAddingWorker(true)}>+ Add Worker</button>
+        </div>
+      </div>
+
+      {/* ── Search + role filter pills ── */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        <input
+          className="adm-input"
+          style={{ flex: '1 1 180px', maxWidth: 280, padding: '7px 12px', fontSize: 13 }}
+          placeholder="Search name or email…"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
+        />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['all', 'client', 'worker', 'admin'].map(r => (
+            <button
+              key={r}
+              className={roleFilter === r ? 'adm-subtab active' : 'adm-subtab'}
+              onClick={() => { setRoleFilter(r); setPage(1) }}
+              style={{ textTransform: 'capitalize' }}>
+              {r === 'all' ? `All (${allUsers.length})` : r === 'client' ? `Client (${clients.length})` : r === 'worker' ? `Worker (${workers.length})` : `Admin (${(admins || []).length})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Unified table ── */}
+      {visible.length === 0 ? (
+        <p style={{ color: '#94a3b8', fontSize: 13 }}>No users match your filter.</p>
       ) : (
-        <table className="adm-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Actions</th></tr></thead>
-          <tbody>
-            {workers.map(w => (
-              <tr key={w.id}>
-                <td style={{ fontWeight: 600 }}>{w.name}</td>
-                <td>{w.email}</td>
-                <td>{w.phone || '—'}</td>
-                <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button className="adm-btn-primary sm" onClick={() => openPwdModal(w)}
-                    style={{ fontSize: 12, padding: '4px 10px' }}>
-                    Set Password
-                  </button>
-                  <button className="adm-btn-ghost sm"
-                    onClick={() => getWorkerLoginLink(w.email)}
-                    disabled={generatingWorkerLink === w.email}
-                    style={{ fontSize: 12, padding: '4px 10px' }}>
-                    {generatingWorkerLink === w.email ? 'Generating…' : '🔗 Get Login Link'}
-                  </button>
-                  <button className="adm-btn-ghost sm" onClick={() => deleteWorker(w)}
-                    style={{ fontSize: 12, padding: '4px 10px', color: '#dc2626' }}>
-                    Remove
-                  </button>
-                </td>
+        <>
+        <div className="adm-table-wrap adm-users-table">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email / Phone</th>
+                <th>Role</th>
+                <th className="adm-col-created">Created</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {paginated.map(u => (
+                <tr key={`${u._type}-${u.id}`}>
+                  <td style={{ fontWeight: 600 }}>{u.name || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>{u.email?.split('@')[0] || '—'}</span>}</td>
+                  <td>
+                    <div style={{ fontSize: 13 }}>{u.email || '—'}</div>
+                    {u.phone && <div style={{ fontSize: 11, color: '#94a3b8' }}>{u.phone}</div>}
+                  </td>
+                  <td><span style={BADGE[u._type]}>{u._type}</span></td>
+                  <td className="adm-col-created" style={{ color: '#94a3b8', fontSize: 12 }}>
+                    {u.created ? new Date(u.created).toLocaleDateString('en-GB') : '—'}
+                  </td>
+                  <td>
+                    {u._type === 'client' && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          disabled={generatingFor === u.email}
+                          onClick={() => getLoginLink(u.email)}>
+                          {generatingFor === u.email ? '…' : '🔗 Login Link'}
+                        </button>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          disabled={sendingPwdFor === u.email}
+                          onClick={() => sendTempPassword(u._raw)}>
+                          {sendingPwdFor === u.email ? '…' : '🔑 Temp Password'}
+                        </button>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#dc2626', borderColor: '#fca5a5' }}
+                          onClick={() => { setDeleteTarget(u._raw); setDeleteConfirm('') }}>
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    )}
+                    {u._type === 'worker' && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          disabled={generatingWorkerLink === u.email}
+                          onClick={() => getWorkerLoginLink(u.email)}>
+                          {generatingWorkerLink === u.email ? 'Generating…' : '🔗 Login Link'}
+                        </button>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          onClick={() => openPwdModal(u._raw)}>
+                          🔑 Set Password
+                        </button>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#dc2626' }}
+                          onClick={() => deleteWorker(u._raw)}>
+                          🗑️ Remove
+                        </button>
+                      </div>
+                    )}
+                    {u._type === 'admin' && (
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>View only</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Pagination ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, padding: '14px 0 2px', borderTop: '1px solid #f1f5f9', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>
+            Showing {visible.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, visible.length)} of {visible.length} user{visible.length !== 1 ? 's' : ''}
+          </span>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="adm-btn-ghost sm"
+                disabled={safePage === 1}
+                onClick={() => setPage(p => p - 1)}
+                style={{ padding: '5px 12px' }}>
+                ← Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => {
+                if (totalPages > 7) {
+                  if (n !== 1 && n !== totalPages && Math.abs(n - safePage) > 2) {
+                    if (n === safePage - 3 || n === safePage + 3) return <span key={n} style={{ color: '#94a3b8', padding: '0 4px', fontSize: 13 }}>…</span>
+                    return null
+                  }
+                }
+                return (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    className={n === safePage ? 'adm-btn-primary sm' : 'adm-btn-ghost sm'}
+                    style={{ padding: '5px 10px', minWidth: 34, fontWeight: n === safePage ? 800 : 600 }}>
+                    {n}
+                  </button>
+                )
+              })}
+              <button
+                className="adm-btn-ghost sm"
+                disabled={safePage === totalPages}
+                onClick={() => setPage(p => p + 1)}
+                style={{ padding: '5px 12px' }}>
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
+        </>
       )}
     </div>
   )
@@ -1937,6 +2041,8 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
   const [editVarSaving,  setEditVarSaving]  = useState(false)
   const [varUploadOk,    setVarUploadOk]    = useState(false)
   const [docUploadOk,    setDocUploadOk]    = useState(false)
+  const [accessPhotos,   setAccessPhotos]   = useState({}) // { [orderId]: [{path, url}] }
+  const [apLightbox,     setApLightbox]     = useState(null)
   const editVarFileRef = useRef(null)
   const [varSubTab,       setVarSubTab]       = useState('requests')
   const [adminVarDesc,    setAdminVarDesc]    = useState('')
@@ -1976,12 +2082,28 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     return !q || o.client?.name?.toLowerCase().includes(q) || o.client?.email?.toLowerCase().includes(q) || o.order_number?.toLowerCase().includes(q)
   })
 
+  async function loadAccessPhotos(orderId) {
+    const { data: files } = await supabase.storage
+      .from('order-photos')
+      .list(`${orderId}/access`, { limit: 50 })
+    if (!files?.length) { setAccessPhotos(p => ({ ...p, [orderId]: [] })); return }
+    const signed = await Promise.all(
+      files.map(async f => {
+        const path = `${orderId}/access/${f.name}`
+        const { data } = await supabase.storage.from('order-photos').createSignedUrl(path, 3600)
+        return data?.signedUrl ? { path, url: data.signedUrl } : null
+      })
+    )
+    setAccessPhotos(p => ({ ...p, [orderId]: signed.filter(Boolean) }))
+  }
+
   async function openOrderModal(order) {
     setOpenOrder(order)
     setModalTab('details')
     setAddingPayment(null)
     setEditingPayment(null)
     loadStages(order.id)
+    loadAccessPhotos(order.id)
     if (!extraRequests[order.id]) loadExtraRequests(order.id)
     if (!orderPayments[order.id]) loadPayments(order.id)
     if (!orderDocuments[order.id]) loadDocuments(order.id)
@@ -2179,7 +2301,7 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
 
   // ── savings club helpers ──────────────────────────────────────────────────
   async function loadSavingsPlan(orderId) {
-    const { data } = await supabase.from('savings_plans').select('*').eq('order_id', orderId).single()
+    const { data } = await supabase.from('savings_plans').select('*').eq('order_id', orderId).maybeSingle()
     setSavingsPlans(p => ({ ...p, [orderId]: data || null }))
     if (data) setSavingsForm({ name: data.name, target_amount: data.target_amount || '', monthly_amount: data.monthly_amount || '', start_date: data.start_date || '', target_date: data.target_date || '', notes: data.notes || '' })
   }
@@ -2246,7 +2368,7 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
   }
 
   async function deleteSavingsDeposit(orderId, depId) {
-    if (!window.confirm('Delete this deposit?')) return
+    if (!await doConfirm('Delete this deposit?')) return
     const { error } = await supabase.from('order_payments').delete().eq('id', depId)
     if (!error) {
       setOrderPayments(p => ({ ...p, [orderId]: (p[orderId] || []).filter(x => x.id !== depId) }))
@@ -2619,9 +2741,37 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
                       <TimeRangePicker value={order.installation_window || ''} onSave={v => updateOrderField(order.id, 'installation_window', v)} />
                     </div>
                   </div>
-                  {order.access_notes && (
-                    <div style={{ marginTop: 16, background: '#FFFBE6', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#78350f' }}>
-                      <strong>Access Notes:</strong> {order.access_notes}
+                  {(order.access_notes || accessPhotos[order.id]?.length > 0) && (
+                    <div style={{ marginTop: 16, background: '#FFFBE6', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px' }}>
+                      {order.access_notes && (
+                        <div style={{ fontSize: 13, color: '#78350f', marginBottom: accessPhotos[order.id]?.length ? 10 : 0 }}>
+                          <strong>Access Notes:</strong> {order.access_notes}
+                        </div>
+                      )}
+                      {accessPhotos[order.id]?.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                            📸 Garden & Access Photos ({accessPhotos[order.id].length})
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
+                            {accessPhotos[order.id].map(p => (
+                              <img
+                                key={p.path}
+                                src={p.url}
+                                alt="Access"
+                                onClick={() => setApLightbox(p.url)}
+                                style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in', display: 'block', border: '1px solid #fde68a' }}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {/* Access photo lightbox */}
+                  {apLightbox && (
+                    <div onClick={() => setApLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+                      <img src={apLightbox} alt="Access" style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 12, objectFit: 'contain' }} />
                     </div>
                   )}
                 </div>
@@ -3469,7 +3619,7 @@ function ExtrasTab({ extras, setExtras, flash }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {extras.map(ex => (
-            <div key={ex.id} style={{
+            <div key={ex.id} className="adm-extra-card" style={{
               display: 'grid',
               gridTemplateColumns: '72px 1fr 1fr auto auto auto',
               alignItems: 'center',

@@ -124,6 +124,9 @@
 
 /* Main area */
 .adm-main    { padding: 24px; max-width: 1200px; margin: 0 auto; }
+@media (max-width: 640px) {
+  .adm-main { padding: 14px 12px; }
+}
 .adm-loading { padding: 48px; text-align: center; color: #94a3b8; font-family: 'Nunito', inherit; }
 
 /* ── Overview stat cards (portal-style) ── */
@@ -142,6 +145,12 @@
   transition: transform 0.15s, box-shadow 0.15s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
+.adm-stat-card .adm-stat-value {
+  font-size: clamp(22px, 5vw, 34px);
+}
+@media (max-width: 900px) {
+  .adm-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
 @media (max-width: 640px) {
   .adm-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .adm-stat-card { padding: 16px 12px; }
@@ -159,10 +168,15 @@
   font-family: inherit;
   outline: none;
   width: 260px;
+  max-width: 100%;
   color: #1e293b;
   background: #fff;
 }
 .adm-search:focus { border-color: #1E3070; }
+@media (max-width: 640px) {
+  .adm-search { width: 100%; }
+  .adm-section-header { flex-direction: column; align-items: stretch; }
+}
 .adm-hint { font-size: 12px; color: #94a3b8; margin: 4px 0 0; }
 .adm-empty { color: #94a3b8; font-style: italic; font-size: 13px; padding: 4px 0; }
 
@@ -204,15 +218,22 @@
 .adm-badge-off { background: #fee2e2; color: #991b1b; }
 
 /* Module body */
-.adm-module-body       { padding: 16px; display: flex; flex-direction: column; gap: 20px; }
+.adm-module-body       { padding: 16px; display: flex; flex-direction: column; gap: 20px; overflow-x: auto; }
 .adm-select-group      { display: flex; flex-direction: column; gap: 8px; }
 .adm-select-label      { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
+
+/* Table wrapper for horizontal scroll on small screens */
+.adm-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* Table */
 .adm-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  min-width: 480px;
 }
 .adm-table th {
   text-align: left;
@@ -391,16 +412,24 @@
   background: rgba(0,0,0,.4);
   display: flex; align-items: center; justify-content: center;
   z-index: 200;
+  padding: 12px;
 }
 .adm-modal {
   background: #fff;
   border-radius: 12px;
   padding: 28px;
   width: 480px;
-  max-width: 94vw;
+  max-width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 8px 40px rgba(0,0,0,.2);
+}
+@media (max-width: 640px) {
+  .adm-modal { padding: 18px 16px; border-radius: 10px; }
+  .adm-modal h3 { font-size: 16px; }
+  .adm-login-card { padding: 28px 20px; width: 100%; max-width: 360px; }
+  .adm-modal-actions { flex-direction: column; }
+  .adm-modal-actions button { width: 100%; }
 }
 .adm-modal h3 { margin: 0 0 16px; font-size: 18px; }
 .adm-modal hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
@@ -477,6 +506,9 @@
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   border-top: 1px solid #f1f5f9;
+}
+@media (max-width: 640px) {
+  .adm-quote-body { grid-template-columns: 1fr; gap: 14px; }
 }
 .adm-quote-items h4,
 .adm-quote-notes h4 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin: 0 0 8px; }
@@ -583,17 +615,23 @@
   padding: 8px 18px;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 8px 8px 0 0;
   margin-bottom: -2px;
   font-size: 14px;
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.ord-tab:hover { color: #1e293b; }
-.ord-tab.active { color: #1E3070; border-bottom-color: #1E3070; }
+.ord-tab:hover { color: #1e293b; background: #f1f5f9; }
+.ord-tab.active {
+  color: #1E3070;
+  font-weight: 800;
+  background: #EEF2FF;
+  border-bottom-color: #1E3070;
+}
 
 /* Section cards */
 .ord-section {
@@ -663,29 +701,118 @@
 .ord-edit-form { margin-bottom: 0; border-bottom: none; }
 
 /* ─── Responsive breakpoints ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .adm-topbar { padding: 0 12px; }
+  .adm-header-brand { font-size: 15px; }
+  .adm-header-sub { display: none; }
+  .adm-user { display: none; }
+  /* Icon-only tabs — matches client portal behaviour */
+  .adm-tab-label { display: none; }
+  .adm-tab { font-size: 20px; padding: 6px 10px; }
+  .adm-tabs { gap: 1px; }
+}
+
 @media (max-width: 640px) {
+  .adm-topbar { padding: 0 10px; }
+  .adm-header-logo { height: 28px; }
+
   .ord-header-card { flex-direction: column; align-items: flex-start; padding: 14px 16px; }
   .ord-header-right { margin-left: 0; flex-wrap: wrap; }
   .ord-header-name { font-size: 17px; }
 
   .ord-field-grid { grid-template-columns: 1fr; gap: 12px; }
-  .ord-summary-grid { grid-template-columns: 1fr; gap: 8px; }
+  .ord-summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .ord-stat-value { font-size: 17px; }
 
   .ord-list-meta { gap: 6px; }
   .ord-mini-progress { display: none; }
 
-  .ord-tab { font-size: 13px; padding: 8px 12px; }
+  .ord-tab { font-size: 12px; padding: 7px 10px; }
   .ord-section { padding: 14px; }
 
   .ord-add-form,
   .ord-edit-form { padding: 10px; }
+
+  /* Collapse all multi-column form grids inside add/edit forms to single column */
+  .ord-add-form > div,
+  .ord-edit-form > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Payment rows: wrap amount + actions below the label on narrow screens */
+  .ord-pmt-row { flex-wrap: wrap; gap: 6px 10px; }
+  .ord-pmt-amount { flex-shrink: 0; }
+  .ord-pmt-actions { margin-left: auto; flex-shrink: 0; }
+
+  /* Touch-friendly button min sizes */
+  .adm-btn-primary,
+  .adm-btn-danger,
+  .adm-btn-ghost { min-height: 40px; }
+
+  /* List row wrapping on mobile */
+  .ord-list-row { flex-wrap: wrap; }
+
+  /* Quotes: stack name/email and price/status on mobile */
+  .adm-quote-header { flex-wrap: wrap; gap: 8px 0; align-items: flex-start; }
+  .adm-quote-meta   { flex: 1 1 100%; min-width: 0; }
+  .adm-quote-right  { flex: 1 1 100%; flex-wrap: wrap; gap: 8px; }
+  .adm-quote-date   { flex: 1 1 auto; }
+  .adm-status-select { min-width: 120px; }
+
+  /* ── Users table → card layout ────────────────────────────────── */
+  .adm-users-table { overflow: visible; }
+  .adm-users-table .adm-table { display: block; min-width: unset; }
+  .adm-users-table .adm-table thead { display: none; }
+  .adm-users-table .adm-table tbody { display: flex; flex-direction: column; gap: 8px; }
+  .adm-users-table .adm-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .adm-users-table .adm-table td { border: none; padding: 0; }
+  /* Name — top left */
+  .adm-users-table .adm-table td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 700; font-size: 14px; }
+  /* Email/Phone — below name */
+  .adm-users-table .adm-table td:nth-child(2) { grid-column: 1; grid-row: 2; }
+  /* Role badge — top right */
+  .adm-users-table .adm-table td:nth-child(3) { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; }
+  /* Created — hidden */
+  .adm-users-table .adm-table td:nth-child(4) { display: none; }
+  /* Actions — full width at bottom */
+  .adm-users-table .adm-table td:nth-child(5) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+
+  /* ── Extras card: collapse 6-col grid ─────────────────────────── */
+  .adm-extra-card {
+    grid-template-columns: 72px 1fr !important;
+    gap: 6px 12px !important;
+    align-items: start !important;
+  }
+  .adm-extra-card > :nth-child(1) { grid-column: 1; grid-row: 1 / 4; align-self: center; }
+  .adm-extra-card > :nth-child(2) { grid-column: 2; grid-row: 1; }
+  .adm-extra-card > :nth-child(3) { grid-column: 2; grid-row: 2; }
+  .adm-extra-card > :nth-child(4) { grid-column: 1; grid-row: 4; }
+  .adm-extra-card > :nth-child(5) { grid-column: 2; grid-row: 4; }
 }
+
 
 @media (max-width: 400px) {
   .ord-worker-badge { display: none; }
   .ord-header-right { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .ord-tab { font-size: 12px; padding: 7px 10px; }
+  .ord-tab { font-size: 11px; padding: 6px 8px; }
+  .ord-summary-grid { grid-template-columns: 1fr; }
 }
 .adm-quote-notes .adm-inline-input { max-width: 100%; width: 100%; }
 

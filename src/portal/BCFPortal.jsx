@@ -2,12 +2,13 @@
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import ViewerPanel from '../components/ViewerPanel'
+import LoadingScreen from '../components/LoadingScreen'
 
 const TABS = [
   { id: 'dashboard',    icon: '🏠', label: 'Dashboard'      },
   { id: 'configurator', icon: '🛝', label: 'Configurator'   },
   { id: 'progress',     icon: '🔨', label: 'Build Progress' },
-  { id: 'photos',       icon: '📸', label: 'Site Photos'    },
+  { id: 'photos',       icon: '📸', label: 'Photos & Files' },
   { id: 'delivery',     icon: '🚚', label: 'Delivery'       },
   { id: 'extras',       icon: '⭐', label: 'Extras & Variations' },
   { id: 'refer',        icon: '🎁', label: 'Refer a Friend' },
@@ -72,6 +73,13 @@ const SHARED_STYLES = `
   .bcfp-menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; border: none; background: none; width: 100%; text-align: left; cursor: pointer; font-family: inherit; transition: background 0.15s; }
   .bcfp-menu-item:hover { background: rgba(255,255,255,0.1); }
   .bcfp-menu-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0; }
+  @media (max-width: 768px) {
+    .bcfp .delivery-grid { grid-template-columns: 1fr !important; }
+    .bcfp .dash-grid-2   { grid-template-columns: 1fr !important; }
+    .bcfp .tab-btn { padding: 7px 10px !important; font-size: 20px !important; gap: 0 !important; min-width: 40px; justify-content: center; }
+    .bcfp .tab-label { display: none !important; }
+    .bcfp-nav-scroll { gap: 0 !important; }
+  }
   @media (max-width: 700px) {
     .bcfp .grid-2 { grid-template-columns: 1fr !important; }
     .bcfp .grid-3 { grid-template-columns: 1fr 1fr !important; }
@@ -80,14 +88,12 @@ const SHARED_STYLES = `
     .bcfp .mobile-hide { display: none !important; }
     .bcfp .mobile-only { display: flex !important; align-items: center; }
     .bcfp .card { padding: 14px !important; }
-    .bcfp .tab-btn { padding: 7px 10px !important; font-size: 20px !important; gap: 0 !important; min-width: 40px; justify-content: center; }
-    .bcfp .tab-label { display: none !important; }
-    .bcfp-nav-scroll { gap: 0 !important; }
     .bcfp .btn-green, .bcfp .btn-yellow { min-height: 44px; }
     .bcfp .star-btn { min-width: 44px; min-height: 44px; }
     .bcfp .sign-out-btn { min-height: 44px; padding: 8px 14px !important; }
     .bcfp-content { padding: 16px 12px !important; }
     .bcfp-header { padding-top: env(safe-area-inset-top, 0px) !important; }
+    .bcfp .delivery-grid { grid-template-columns: 1fr !important; }
   }
   @media (max-width: 380px) {
     .bcfp .tab-btn { font-size: 17px !important; padding: 6px 8px !important; min-width: 36px; }
@@ -194,25 +200,7 @@ function PortalLogin() {
   )
 }
 
-// ── Loading Screen ──────────────────────────────────────────────────────────
-function LoadingScreen() {
-  return (
-    <div className="bcfp" style={{ minHeight: '100vh', background: '#F8F9FC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <style>{SHARED_STYLES}</style>
-      <div style={{ textAlign: 'center' }}>
-        <img
-          src="https://media1.tenor.com/m/r4Is6XT2oYsAAAAd/playing-swing-playground.gif"
-          alt="Kid swinging"
-          style={{ width: 280, borderRadius: 20, marginBottom: 16 }}
-        />
-        <p style={{ fontFamily: "'Fredoka One', cursive", fontSize: 20, color: '#1E3070', margin: '0 0 4px' }}>
-          Loading your portal…
-        </p>
-        <p style={{ fontSize: 13, color: '#64748b' }}>Almost ready to play! 🌳</p>
-      </div>
-    </div>
-  )
-}
+// LoadingScreen is now the shared branded component (LoadingScreen.jsx)
 
 // ── In-progress stage icon — matches label keywords to an animated emoji ───
 function InProgressIcon({ label = '' }) {
@@ -342,7 +330,7 @@ export default function BCFPortal() {
   const [profile,         setProfile]         = useState(null)
   const [order,           setOrder]           = useState(null)
   const [stages,          setStages]          = useState([])
-  const [tab,             setTab]             = useState('dashboard')
+  const [tab,             setTab]             = useState(() => localStorage.getItem('portal_tab') || 'dashboard')
   const [extras,          setExtras]          = useState([])
   const [cart,            setCart]            = useState([])
   const [sendingRequest,  setSendingRequest]  = useState(false)
@@ -369,6 +357,12 @@ export default function BCFPortal() {
   const [accessNotes,     setAccessNotes]     = useState('')
   const [savingNotes,     setSavingNotes]     = useState(false)
   const [notesSaved,      setNotesSaved]      = useState(false)
+  const [accessPhotos,    setAccessPhotos]    = useState([]) // [{path, url}]
+  const [uploadingAP,     setUploadingAP]     = useState(false)
+  const [cameraOpen,      setCameraOpen]      = useState(false)
+  const accessPhotoRef = useRef(null)
+  const camVideoRef    = useRef(null)
+  const camStreamRef   = useRef(null)
   const [reviewStars,     setReviewStars]     = useState(0)
   const [reviewText,      setReviewText]      = useState('')
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
@@ -386,6 +380,7 @@ export default function BCFPortal() {
   const [allPhotos,        setAllPhotos]        = useState([])
   const [allPhotoUrls,     setAllPhotoUrls]     = useState({})
   const [loadingAllPhotos, setLoadingAllPhotos] = useState(false)
+  const [allPhotosLoaded,  setAllPhotosLoaded]  = useState(false)
   const [selectedPhotoStage, setSelectedPhotoStage] = useState(null)
   const [lightbox,         setLightbox]         = useState(null) // { url, caption }
   const [menuOpen,         setMenuOpen]         = useState(false)
@@ -431,6 +426,8 @@ export default function BCFPortal() {
   }, [])
 
   // Show review modal when the final stage (Handover Complete) is done and no review yet
+  useEffect(() => { if (order?.id) loadAccessPhotos() }, [order?.id])
+
   useEffect(() => {
     if (!stages.length || existingReview || reviewSubmitted) return
     const lastStage = stages[stages.length - 1]
@@ -463,16 +460,15 @@ export default function BCFPortal() {
 
     // If this user is a worker, redirect them to the worker panel
     const { data: roleRow } = await supabase
-      .from('user_roles').select('role').eq('user_id', userId).single()
+      .from('user_roles').select('role').eq('user_id', userId).maybeSingle()
     if (roleRow?.role === 'worker' || roleRow?.role === 'admin') {
-      await supabase.auth.signOut()
-      window.location.href = roleRow.role === 'worker' ? '/worker' : '/admin'
+      window.location.replace(roleRow.role === 'worker' ? '/worker' : '/admin')
       return
     }
 
     const [{ data: profileData }, { data: orderData }, { data: extrasData }, { data: referralsData }, { data: reminderData }, { data: reviewData }, { data: notifData }, { data: varReqData }] = await Promise.all([
       supabase.from('client_profiles').select('*').eq('id', userId).single(),
-      supabase.from('orders').select('*, worker:worker_profiles(*)').eq('client_id', userId).single(),
+      supabase.from('orders').select('*, worker:worker_profiles(*)').eq('client_id', userId).maybeSingle(),
       supabase.from('extras').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('referrals').select('*').eq('referrer_id', userId).order('created_at', { ascending: false }),
       supabase.from('reminders').select('*').eq('client_id', userId).maybeSingle(),
@@ -534,6 +530,94 @@ export default function BCFPortal() {
     }).catch(console.warn)
     setNotesSaved(true)
     setTimeout(() => setNotesSaved(false), 2500)
+  }
+
+  async function loadAccessPhotos() {
+    if (!order?.id) return
+    const { data: files } = await supabase.storage
+      .from('order-photos')
+      .list(`${order.id}/access`, { limit: 50 })
+    if (!files?.length) return
+    const signed = await Promise.all(
+      files.map(async f => {
+        const path = `${order.id}/access/${f.name}`
+        const { data } = await supabase.storage.from('order-photos').createSignedUrl(path, 3600)
+        return data?.signedUrl ? { path, url: data.signedUrl } : null
+      })
+    )
+    setAccessPhotos(signed.filter(Boolean))
+  }
+
+  async function uploadAccessPhoto(e) {
+    const file = e.target.files?.[0]
+    if (!file || !order?.id) return
+    setUploadingAP(true)
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${order.id}/access/${Date.now()}_${safeName}`
+    // Show instantly via local object URL
+    const localUrl = URL.createObjectURL(file)
+    setAccessPhotos(prev => [...prev, { path, url: localUrl }])
+    const { error } = await supabase.storage.from('order-photos').upload(path, file, { contentType: file.type })
+    if (error) {
+      console.error('[AccessPhoto] upload failed:', error.message)
+      setAccessPhotos(prev => prev.filter(p => p.path !== path))
+      alert('Photo upload failed — please try again.')
+    } else {
+      const { data: sd } = await supabase.storage.from('order-photos').createSignedUrl(path, 3600)
+      if (sd?.signedUrl) setAccessPhotos(prev => prev.map(p => p.path === path ? { path, url: sd.signedUrl } : p))
+    }
+    setUploadingAP(false)
+    e.target.value = ''
+  }
+
+  async function deleteAccessPhoto(path) {
+    await supabase.storage.from('order-photos').remove([path])
+    setAccessPhotos(prev => prev.filter(p => p.path !== path))
+  }
+
+  async function openCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      camStreamRef.current = stream
+      setCameraOpen(true)
+      setTimeout(() => { if (camVideoRef.current) camVideoRef.current.srcObject = stream }, 80)
+    } catch {
+      accessPhotoRef.current?.click()
+    }
+  }
+
+  function closeCamera() {
+    camStreamRef.current?.getTracks().forEach(t => t.stop())
+    camStreamRef.current = null
+    setCameraOpen(false)
+  }
+
+  async function capturePhoto() {
+    const video = camVideoRef.current
+    if (!video || !order?.id) return
+    const canvas = document.createElement('canvas')
+    canvas.width  = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    canvas.toBlob(async blob => {
+      closeCamera()
+      if (!blob) return
+      const path = `${order.id}/access/${Date.now()}_capture.jpg`
+      // Show instantly via local object URL
+      const localUrl = URL.createObjectURL(blob)
+      setAccessPhotos(prev => [...prev, { path, url: localUrl }])
+      setUploadingAP(true)
+      const { error } = await supabase.storage.from('order-photos').upload(path, blob, { contentType: 'image/jpeg' })
+      if (error) {
+        console.error('[AccessPhoto] capture upload failed:', error.message)
+        setAccessPhotos(prev => prev.filter(p => p.path !== path))
+        alert('Photo upload failed — please try again.')
+      } else {
+        const { data: sd } = await supabase.storage.from('order-photos').createSignedUrl(path, 3600)
+        if (sd?.signedUrl) setAccessPhotos(prev => prev.map(p => p.path === path ? { path, url: sd.signedUrl } : p))
+      }
+      setUploadingAP(false)
+    }, 'image/jpeg', 0.92)
   }
 
   async function submitReview() {
@@ -729,7 +813,7 @@ export default function BCFPortal() {
     setNotifOpen(false)
     const route = notifRoute(n.title)
     if (!route) return
-    setTab(route.tab)
+    setTab(route.tab); localStorage.setItem('portal_tab', route.tab)
     if (route.tab === 'extras' && route.subTab) setExtrasSubTab(route.subTab)
   }
 
@@ -783,6 +867,7 @@ export default function BCFPortal() {
     }))
     setAllPhotoUrls(urls)
     setLoadingAllPhotos(false)
+    setAllPhotosLoaded(true)
   }
 
   const handleDrop = e => {
@@ -801,7 +886,12 @@ export default function BCFPortal() {
     return () => clearTimeout(t)
   }, [stages])
 
-  if (authLoading) return <LoadingScreen />
+  // Load all photos when user opens the Photos tab (not during render)
+  useEffect(() => {
+    if (tab === 'photos' && !allPhotosLoaded && !loadingAllPhotos) loadAllPhotos()
+  }, [tab, allPhotosLoaded, loadingAllPhotos])
+
+  if (authLoading) return <LoadingScreen subtitle="Loading your portal…" />
   if (!session)    return null
 
   // ── Derived values from real data ────────────────────────────────────────
@@ -970,7 +1060,7 @@ export default function BCFPortal() {
                   <div style={{ color: '#1E3070', fontWeight: 800, fontSize: 15 }}>{clientName}</div>
                   <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Order #{orderNumber}</div>
                 </div>
-                <button className="bcfp-menu-item" style={{ fontSize: 13, color: '#1E3070' }} onClick={() => { setAvatarOpen(false); setTab('profile') }}>
+                <button className="bcfp-menu-item" style={{ fontSize: 13, color: '#1E3070' }} onClick={() => { setAvatarOpen(false); setTab('profile'); localStorage.setItem('portal_tab', 'profile') }}>
                   <span style={{ fontSize: 16 }}>👤</span> My Profile
                 </button>
                 <button className="bcfp-menu-item" style={{ fontSize: 13, color: '#1E3070' }} onClick={() => { setAvatarOpen(false); setChangePwdOpen(true); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }) }}>
@@ -996,7 +1086,7 @@ export default function BCFPortal() {
               <div className={`bcfp-menu-dropdown${menuOpen ? ' open' : ''}`}>
                 {/* Profile */}
                 <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div onClick={() => { setTab('profile'); setMenuOpen(false) }}
+                  <div onClick={() => { setTab('profile'); setMenuOpen(false); localStorage.setItem('portal_tab', 'profile') }}
                     style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid #FFD740', cursor: 'pointer', flexShrink: 0, background: '#253080', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {avatarUrl
                       ? <img src={avatarUrl} alt={firstName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1057,7 +1147,7 @@ export default function BCFPortal() {
             const badgeColor = t.id === 'documents' ? '#1565c0' : t.id === 'extras' ? '#1565c0' : paymentAlertType === 'overdue' ? '#c62828' : '#D4A800'
             return (
               <button key={t.id} className={`bcfp tab-btn${tab === t.id ? ' active' : ''}`}
-                onClick={() => { playPop(); setTab(t.id) }}>
+                onClick={() => { playPop(); setTab(t.id); localStorage.setItem('portal_tab', t.id) }}>
                 <span style={{ position: 'relative', display: 'inline-block', lineHeight: 1 }}>
                   {t.icon}
                   {badge > 0 && (
@@ -1090,7 +1180,7 @@ export default function BCFPortal() {
                 border: `2px solid ${paymentAlertType === 'overdue' ? '#ef9a9a' : '#F9C800'}`,
                 borderRadius: 12, padding: '14px 18px', marginBottom: 16,
                 display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-              }} onClick={() => setTab('payments')}>
+              }} onClick={() => { setTab('payments'); localStorage.setItem('portal_tab', 'payments') }}>
                 <span style={{ fontSize: 26, flexShrink: 0 }}>{paymentAlertType === 'overdue' ? '🔴' : '⚠️'}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 800, fontSize: 15, color: paymentAlertType === 'overdue' ? '#c62828' : '#D4A800' }}>
@@ -1112,7 +1202,7 @@ export default function BCFPortal() {
                 background: '#e3f2fd', border: '2px solid #90caf9',
                 borderRadius: 12, padding: '14px 18px', marginBottom: 16,
                 display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-              }} onClick={() => setTab('documents')}>
+              }} onClick={() => { setTab('documents'); localStorage.setItem('portal_tab', 'documents') }}>
                 <span style={{ fontSize: 26, flexShrink: 0 }}>📄</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 800, fontSize: 15, color: '#1565c0' }}>
@@ -1135,7 +1225,7 @@ export default function BCFPortal() {
                 <div style={{ marginTop: 10, color: '#64748b', fontWeight: 600, fontSize: 13 }}>
                   📅 {doneCount} of {stages.length} stages complete
                 </div>
-                <button className="btn-green" style={{ marginTop: 14, fontSize: 13 }} onClick={() => setTab('progress')}>View Progress →</button>
+                <button className="btn-green" style={{ marginTop: 14, fontSize: 13 }} onClick={() => { setTab('progress'); localStorage.setItem('portal_tab', 'progress') }}>View Progress →</button>
               </div>
 
               <div className="card" style={{ background: '#fff', borderTop: '4px solid #F9C800', borderRadius: '0 0 16px 16px' }}>
@@ -1143,7 +1233,7 @@ export default function BCFPortal() {
                 <div style={{ fontSize: 30, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'" }}>{installDate}</div>
                 <div style={{ color: '#475569', fontSize: 13, fontWeight: 600, marginTop: 4 }}>{installWindow}</div>
                 {address !== '—' && <div style={{ color: '#64748b', fontSize: 12, marginTop: 6 }}>📍 {address}</div>}
-                <button className="btn-green" style={{ marginTop: 14, fontSize: 13, background: '#F9C800', color: '#1E3070' }} onClick={() => setTab('delivery')}>Delivery Details →</button>
+                <button className="btn-green" style={{ marginTop: 14, fontSize: 13, background: '#F9C800', color: '#1E3070' }} onClick={() => { setTab('delivery'); localStorage.setItem('portal_tab', 'delivery') }}>Delivery Details →</button>
               </div>
             </div>
 
@@ -1154,7 +1244,7 @@ export default function BCFPortal() {
                 { icon: '🎁', title: 'Refer a Friend', desc: 'Earn £50 reward',       id: 'refer',        accent: '#E85555', iconBg: '#FFE4E6' },
               ].map(c => (
                 <div key={c.id} className="card" style={{ background: '#fff', borderTop: `4px solid ${c.accent}`, borderRadius: '0 0 16px 16px', cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s' }}
-                  onClick={() => { playPop(); setTab(c.id) }}
+                  onClick={() => { playPop(); setTab(c.id); localStorage.setItem('portal_tab', c.id) }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 8px 28px rgba(0,0,0,0.1)` }}
                   onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}>
                   <div style={{ width: 62, height: 62, borderRadius: '50%', background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, marginBottom: 14 }}>{c.icon}</div>
@@ -1177,7 +1267,7 @@ export default function BCFPortal() {
               </div>
               <button
                 className="btn-green"
-                onClick={() => setTab('reminders')}
+                onClick={() => { setTab('reminders'); localStorage.setItem('portal_tab', 'reminders') }}
                 disabled={!buildComplete}
                 style={{
                   background: buildComplete ? undefined : '#e2e8f0',
@@ -1262,8 +1352,6 @@ export default function BCFPortal() {
 
         {/* SITE PHOTOS */}
         {tab === 'photos' && (() => {
-          if (allPhotos.length === 0 && !loadingAllPhotos) loadAllPhotos()
-
           // A stage is accessible only if done, OR in_progress AND every prior stage is done
           const accessibleStageIds = new Set(
             stages.filter((s, idx) => {
@@ -1291,7 +1379,7 @@ export default function BCFPortal() {
 
           return (
             <div>
-              <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1E3070', marginBottom: 20 }}>📸 Site Photos</h2>
+              <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1E3070', marginBottom: 20 }}>📸 Photos & Files</h2>
 
               {stages.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: 60 }}>
@@ -1376,8 +1464,8 @@ export default function BCFPortal() {
                       </div>
                       <p style={{ fontWeight: 700, color: '#aaa', fontSize: 14 }}>
                         {!accessibleStageIds.has(activeStage?.id)
-                          ? 'This stage hasn\'t started yet — photos will appear here once work begins.'
-                          : 'No photos uploaded for this stage yet.'}
+                          ? 'This stage hasn\'t started yet — photos and files will appear here once work begins.'
+                          : 'No photos or files uploaded for this stage yet.'}
                       </p>
                     </div>
                   ) : (() => {
@@ -1524,6 +1612,32 @@ export default function BCFPortal() {
           </div>
         )}
 
+        {/* Camera modal */}
+        {cameraOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 10000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 20 }}>
+            <video
+              ref={camVideoRef}
+              autoPlay
+              playsInline
+              style={{ maxWidth: '90vw', maxHeight: '60vh', borderRadius: 14, background: '#000', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
+            />
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={capturePhoto}
+                style={{ background: '#F9C800', color: '#1E3070', border: 'none', borderRadius: 12, padding: '14px 32px', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                📸 Capture
+              </button>
+              <button
+                onClick={closeCamera}
+                style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                ✕ Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {lightbox && (
           <div
             onClick={() => setLightbox(null)}
@@ -1544,48 +1658,116 @@ export default function BCFPortal() {
         {tab === 'delivery' && (
           <div>
             <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1E3070', marginBottom: 16 }}>🚚 Delivery & Installation</h2>
-            <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <div className="card">
-                <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 12 }}>📅 Scheduled Date</div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'" }}>{installDate}</div>
-                <div style={{ fontWeight: 700, color: '#475569', marginTop: 4 }}>{installWindow}</div>
-                {address !== '—' && (
-                  <div style={{ marginTop: 16, fontSize: 14 }}>
-                    <div style={{ fontWeight: 700 }}>📍 Installation Address</div>
-                    <div style={{ color: '#555', marginTop: 4 }}>{address}</div>
-                  </div>
-                )}
+            <div className="delivery-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+
+              {/* Left column — stacked cards, natural height */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Scheduled Date */}
+                <div className="card">
+                  <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 10 }}>📅 Scheduled Date</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'", lineHeight: 1.1 }}>{installDate}</div>
+                  <div style={{ fontWeight: 700, color: '#475569', marginTop: 6, fontSize: 14 }}>{installWindow}</div>
+                  {address !== '—' && (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1.5px solid #f0f0f0', fontSize: 13 }}>
+                      <div style={{ fontWeight: 700, color: '#1E3070' }}>📍 Installation Address</div>
+                      <div style={{ color: '#555', marginTop: 4 }}>{address}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Your Installer */}
+                <div className="card" style={{ background: 'linear-gradient(135deg, #e3f2fd, #f0f7ff)', border: '2px solid #90caf9' }}>
+                  <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1565c0', marginBottom: 8 }}>👷 Your Installer</div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: '#1e293b' }}>{workerName}</div>
+                  <div style={{ color: '#555', fontSize: 14, marginTop: 2 }}>{workerPhone}</div>
+                  {workerPhone !== '028 2044 0670' && (
+                    <a href={`tel:${workerPhone}`} className="btn-green" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                      📞 Call {workerName.split(' ')[0]}
+                    </a>
+                  )}
+                </div>
+
               </div>
+
+              {/* Right column — Access & Notes */}
               <div className="card">
-                <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1565c0', marginBottom: 12 }}>📝 Access & Notes</div>
-                <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
+                <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 4 }}>📝 Access & Notes</div>
+                <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
                   Let us know any access details for installation day — gate codes, parking, pets, etc.
                 </p>
                 <textarea
-                  style={{ width: '100%', border: '2px solid #e0e0e0', borderRadius: 10, padding: 10, fontFamily: 'inherit', fontSize: 13, resize: 'vertical', minHeight: 100 }}
+                  style={{ width: '100%', border: '2px solid #e0e0e0', borderRadius: 10, padding: 10, fontFamily: 'inherit', fontSize: 13, resize: 'vertical', minHeight: 110, boxSizing: 'border-box' }}
                   placeholder="e.g. Side gate code is 1234, please park on driveway…"
                   value={accessNotes}
                   onChange={e => setAccessNotes(e.target.value)}
                 />
+                {/* Garden / Access Photos */}
+                <div style={{ marginTop: 14, borderTop: '1.5px solid #f0f0f0', paddingTop: 14 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: '#1E3070', marginBottom: 4 }}>📸 Garden & Access Photos</div>
+                  <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+                    Help your installer prepare — snap a photo or upload from your gallery.
+                  </p>
+
+                  {/* Gallery file input */}
+                  <input ref={accessPhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={uploadAccessPhoto} />
+
+                  <div style={{ display: 'flex', gap: 8, marginBottom: accessPhotos.length ? 12 : 0 }}>
+                    <button
+                      className="btn-green"
+                      style={{ flex: 1, background: '#1E3070', opacity: uploadingAP ? 0.6 : 1 }}
+                      disabled={uploadingAP}
+                      onClick={openCamera}
+                    >
+                      {uploadingAP ? '⏳ Uploading…' : '📷 Take Photo'}
+                    </button>
+                    <button
+                      className="btn-green"
+                      style={{ flex: 1, background: '#475569', opacity: uploadingAP ? 0.6 : 1 }}
+                      disabled={uploadingAP}
+                      onClick={() => accessPhotoRef.current?.click()}
+                    >
+                      🖼️ Upload Image
+                    </button>
+                  </div>
+
+                  {accessPhotos.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8, marginBottom: 14 }}>
+                      {accessPhotos.map(p => (
+                        <div key={p.path} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: '#f1f5f9' }}>
+                          <img
+                            src={p.url}
+                            alt="Access"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+                            onClick={() => setLightbox({ url: p.url, caption: 'Garden / Access Photo' })}
+                          />
+                          <button
+                            onClick={() => deleteAccessPhoto(p.path)}
+                            style={{
+                              position: 'absolute', top: 5, right: 5,
+                              background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
+                              width: 24, height: 24, cursor: 'pointer', color: '#fff', fontSize: 13,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                            title="Remove photo"
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Save Notes */}
                 <button
                   className="btn-green"
-                  style={{ marginTop: 10, width: '100%', opacity: savingNotes ? 0.6 : 1 }}
+                  style={{ marginTop: 16, width: '100%', opacity: savingNotes ? 0.6 : 1 }}
                   disabled={savingNotes}
                   onClick={saveAccessNotes}
                 >
                   {savingNotes ? 'Saving…' : notesSaved ? '✓ Saved!' : 'Save Notes'}
                 </button>
               </div>
-              <div className="card grid-span-2" style={{ gridColumn: 'span 2', background: '#e3f2fd', border: '2px solid #90caf9' }}>
-                <div style={{ fontFamily: "'Fredoka One'", fontSize: 17, color: '#1565c0', marginBottom: 4 }}>👷 Your Installer</div>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>{workerName}</div>
-                <div style={{ color: '#555', fontSize: 14 }}>{workerPhone}</div>
-                {workerPhone !== '028 2044 0670' && (
-                  <a href={`tel:${workerPhone}`} className="btn-green" style={{ marginTop: 10, display: 'inline-block', textDecoration: 'none' }}>
-                    📞 Call {workerName.split(' ')[0]}
-                  </a>
-                )}
-              </div>
+
             </div>
           </div>
         )}

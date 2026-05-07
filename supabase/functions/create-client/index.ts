@@ -151,7 +151,7 @@ serve(async (req) => {
       })
       const passwordSetUrl = resetLink?.properties?.action_link ?? workerUrl
 
-      if (resendKey) {
+      if (send_email && resendKey) {
         await fetch('https://api.resend.com/emails', {
           method:  'POST',
           headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -208,7 +208,7 @@ serve(async (req) => {
       .eq('client_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const orderNum = order_number ?? existingOrder?.order_number ?? `BCF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
 
