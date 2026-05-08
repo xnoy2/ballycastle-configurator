@@ -3520,11 +3520,16 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
 }
 
 // ─── Add-on Extras tab ─────────────────────────────────────────────────────
+const EXTRAS_PAGE_SIZE = 6
+
 function ExtrasTab({ extras, setExtras, flash }) {
   const [doConfirm, confirmModal] = useConfirm()
   const [adding, setAdding] = useState(false)
   const [form,   setForm]   = useState({ name: '', description: '', price: '', icon: '⭐', image_url: '' })
   const [err,    setErr]    = useState('')
+  const [search,     setSearch]     = useState('')
+  const [visibility, setVisibility] = useState('all') // 'all' | 'visible' | 'hidden'
+  const [page,       setPage]       = useState(1)
 
   async function saveField(extra, field, value) {
     const update = { [field]: field === 'price' ? parseFloat(value) : value }
@@ -3610,15 +3615,55 @@ function ExtrasTab({ extras, setExtras, flash }) {
         <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Add Extra</button>
       </div>
 
-      {extras.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 24px', color: '#94a3b8', background: '#fff', borderRadius: 14, border: '2px dashed #e2e8f0' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No extras yet</div>
-          <div style={{ fontSize: 13 }}>Click "+ Add Extra" to create your first product.</div>
+      {/* ── Search + visibility filter ── */}
+      {extras.length > 0 && (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            className="adm-input"
+            style={{ flex: '1 1 200px', maxWidth: 320, padding: '7px 12px', fontSize: 13 }}
+            placeholder="Search by name or description…"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
+          />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[['all', `All (${extras.length})`], ['visible', `Visible (${extras.filter(e => e.is_active).length})`], ['hidden', `Hidden (${extras.filter(e => !e.is_active).length})`]].map(([val, label]) => (
+              <button key={val}
+                className={visibility === val ? 'adm-subtab active' : 'adm-subtab'}
+                onClick={() => { setVisibility(val); setPage(1) }}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {extras.map(ex => (
+      )}
+
+      {(() => {
+        const q = search.toLowerCase()
+        const filtered = extras.filter(ex => {
+          const matchSearch = !q || ex.name.toLowerCase().includes(q) || (ex.description || '').toLowerCase().includes(q)
+          const matchVis = visibility === 'all' || (visibility === 'visible' ? ex.is_active : !ex.is_active)
+          return matchSearch && matchVis
+        })
+        const totalPages = Math.ceil(filtered.length / EXTRAS_PAGE_SIZE)
+        const safePage   = Math.min(page, Math.max(1, totalPages))
+        const paginated  = filtered.slice((safePage - 1) * EXTRAS_PAGE_SIZE, safePage * EXTRAS_PAGE_SIZE)
+
+        if (extras.length === 0) return (
+          <div style={{ textAlign: 'center', padding: '48px 24px', color: '#94a3b8', background: '#fff', borderRadius: 14, border: '2px dashed #e2e8f0' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No extras yet</div>
+            <div style={{ fontSize: 13 }}>Click "+ Add Extra" to create your first product.</div>
+          </div>
+        )
+
+        if (filtered.length === 0) return (
+          <p style={{ color: '#94a3b8', fontSize: 13 }}>No extras match your search.</p>
+        )
+
+        return (
+          <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {paginated.map(ex => (
             <div key={ex.id} className="adm-extra-card" style={{
               display: 'grid',
               gridTemplateColumns: '72px 1fr 1fr auto auto auto',
@@ -3681,8 +3726,24 @@ function ExtrasTab({ extras, setExtras, flash }) {
               </button>
             </div>
           ))}
-        </div>
-      )}
+          </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+              <button className="adm-btn-ghost" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}
+                style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13 }}>← Prev</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button key={n} onClick={() => setPage(n)}
+                  className={safePage === n ? 'adm-btn-primary' : 'adm-btn-ghost'}
+                  style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, minWidth: 36 }}>{n}</button>
+              ))}
+              <button className="adm-btn-ghost" disabled={safePage >= totalPages} onClick={() => setPage(p => p + 1)}
+                style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13 }}>Next →</button>
+            </div>
+          )}
+          </>
+        )
+      })()}
     </div>
   )
 }

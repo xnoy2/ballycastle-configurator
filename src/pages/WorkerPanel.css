@@ -370,6 +370,7 @@
   width: 100%;
   margin-bottom: 14px;
   justify-content: center;
+  min-height: 44px;
 }
 
 .wp-no-photos {
@@ -381,7 +382,7 @@
 
 .wp-photos-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
 }
 
@@ -501,14 +502,74 @@
   margin: 0;
 }
 
+/* ── Buttons — touch targets ─────────────────────────────────────── */
+.wp-btn-done,
+.wp-btn-progress,
+.wp-btn-undo {
+  min-height: 36px;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .wp-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
-  .wp-shell { flex-direction: column; }
-  .wp-sidebar { width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; overflow-x: auto; }
-  .wp-sidebar-header { padding: 12px; }
-  .wp-main { padding: 16px; }
+  .wp-shell { flex-direction: column; height: auto; min-height: 100dvh; overflow: auto; }
+
+  /* Sidebar becomes a top strip */
+  .wp-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: column;
+    overflow-x: unset;
+    flex-shrink: 0;
+  }
+  .wp-sidebar-header { padding: 12px 16px; }
+
+  /* Job buttons in a horizontal scrollable row */
+  .wp-sidebar-section { display: none; }
+  .wp-no-jobs { padding: 8px 16px; }
+
+  /* Wrap job buttons into a horizontal scroll strip */
+  .wp-jobs-row {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .wp-jobs-row::-webkit-scrollbar { display: none; }
+
+  .wp-job-btn {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px;
+    padding: 8px 14px;
+    white-space: nowrap;
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+  .wp-job-btn.active {
+    background: rgba(249,200,0,0.18);
+    border-bottom-color: #F9C800;
+  }
+  .wp-job-btn-order { display: none; }
+
+  .wp-signout {
+    display: none;
+  }
+
+  .wp-main { padding: 14px 12px; }
+  .wp-job-title { font-size: 20px; }
+  .wp-card { padding: 14px; }
+}
+
+@media (max-width: 480px) {
+  .wp-stage-actions { gap: 4px; }
+  .wp-stage-label { font-size: 13px; }
+  .wp-btn-done,
+  .wp-btn-progress { padding: 6px 10px; font-size: 11px; }
+  .wp-flash { right: 12px; left: 12px; text-align: center; }
 }
