@@ -223,7 +223,7 @@ function InProgressIcon({ label = '' }) {
 }
 
 // ── Stage Accordion ────────────────────────────────────────────────────────
-function StageAccordion({ stage, prevDone }) {
+function StageAccordion({ stage, prevDone, taskCount = 0 }) {
   const [open,    setOpen]    = useState(false)
   const [tasks,   setTasks]   = useState(null) // null = not loaded yet
   const [loading, setLoading] = useState(false)
@@ -235,7 +235,7 @@ function StageAccordion({ stage, prevDone }) {
       ? 'pending'
       : stage.status
 
-  const canExpand = effectiveStatus !== 'pending'
+  const canExpand = effectiveStatus !== 'pending' && taskCount > 0
 
   const statusColor = effectiveStatus === 'done' ? '#1E3070' : effectiveStatus === 'in_progress' ? '#1E3070' : '#9e9e9e'
   const bgColor     = effectiveStatus === 'done' ? '#FFFBE6' : effectiveStatus === 'in_progress' ? '#FFF1AA' : '#f5f5f5'
@@ -492,7 +492,7 @@ export default function BCFPortal() {
 
     if (orderData?.id) {
       const [{ data: stagesData }, { data: pmtsData }, { data: docsData }, { data: savingsPlanData }, { data: varAgreeData }] = await Promise.all([
-        supabase.from('build_stages').select('*').eq('order_id', orderData.id).order('stage_number'),
+        supabase.from('build_stages').select('*, stage_tasks(count)').eq('order_id', orderData.id).order('stage_number'),
         supabase.from('order_payments').select('*').eq('order_id', orderData.id).order('due_date', { ascending: true }),
         supabase.from('order_documents').select('*').eq('order_id', orderData.id).order('uploaded_at', { ascending: false }),
         supabase.from('savings_plans').select('*').eq('order_id', orderData.id).eq('is_active', true).maybeSingle(),
@@ -1344,7 +1344,7 @@ export default function BCFPortal() {
               <div className="card" style={{ textAlign: 'center', color: '#aaa', padding: 40 }}>Build stages are being set up…</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {stages.map((s, i) => <StageAccordion key={s.id} stage={s} prevDone={i === 0 || stages[i - 1].status === 'done'} />)}
+                {stages.map((s, i) => <StageAccordion key={s.id} stage={s} prevDone={i === 0 || stages[i - 1].status === 'done'} taskCount={s.stage_tasks?.[0]?.count ?? 0} />)}
               </div>
             )}
           </div>
