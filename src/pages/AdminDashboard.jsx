@@ -2054,6 +2054,7 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
   const [savingsDepForm,    setSavingsDepForm]    = useState({ amount: '', received_date: '', notes: '' })
   const [editingDepId,      setEditingDepId]      = useState(null)
   const [editDepForm,       setEditDepForm]       = useState({ amount: '', received_date: '', notes: '' })
+  const [page,              setPage]              = useState(1)
 
   const [stages, setStages] = useState(() => {
     const map = {}
@@ -2081,6 +2082,10 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     const q = search.toLowerCase()
     return !q || o.client?.name?.toLowerCase().includes(q) || o.client?.email?.toLowerCase().includes(q) || o.order_number?.toLowerCase().includes(q)
   })
+  const ORDERS_PAGE_SIZE = 10
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ORDERS_PAGE_SIZE))
+  const safePage   = Math.min(page, totalPages)
+  const paginated  = filtered.slice((safePage - 1) * ORDERS_PAGE_SIZE, safePage * ORDERS_PAGE_SIZE)
 
   async function loadAccessPhotos(orderId) {
     const { data: files } = await supabase.storage
@@ -2597,13 +2602,13 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
         <div style={{ padding: '0 0 24px' }}>
           <div className="adm-section-header" style={{ padding: '0 0 16px' }}>
             <h2>Orders ({orders.length})</h2>
-            <input className="adm-search" placeholder="Search by name, email or order #…" value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="adm-search" placeholder="Search by name, email or order #…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
           </div>
           {filtered.length === 0 ? (
             <p style={{ color: '#94a3b8', fontSize: 13 }}>{orders.length === 0 ? 'No orders yet.' : 'No orders match your search.'}</p>
-          ) : (
+          ) : (<>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filtered.map(order => {
+              {paginated.map(order => {
                 const orderStages   = stages[order.id]        || []
                 const orderRequests = extraRequests[order.id] || []
                 const pendingCount  = orderRequests.filter(r => r.status === 'pending').length
@@ -2635,7 +2640,33 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
                 )
               })}
             </div>
-          )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, padding: '14px 0 2px', borderTop: '1px solid #f1f5f9', marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                Showing {(safePage - 1) * ORDERS_PAGE_SIZE + 1}–{Math.min(safePage * ORDERS_PAGE_SIZE, filtered.length)} of {filtered.length} order{filtered.length !== 1 ? 's' : ''}
+              </span>
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="adm-btn-ghost sm" disabled={safePage === 1} onClick={() => setPage(p => p - 1)} style={{ padding: '5px 12px' }}>← Prev</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => {
+                    if (totalPages > 7) {
+                      if (n !== 1 && n !== totalPages && Math.abs(n - safePage) > 2) {
+                        if (n === safePage - 3 || n === safePage + 3) return <span key={n} style={{ color: '#94a3b8', padding: '0 4px', fontSize: 13 }}>…</span>
+                        return null
+                      }
+                    }
+                    return (
+                      <button key={n} onClick={() => setPage(n)}
+                        className={n === safePage ? 'adm-btn-primary sm' : 'adm-btn-ghost sm'}
+                        style={{ padding: '5px 10px', minWidth: 34, fontWeight: n === safePage ? 800 : 600 }}>
+                        {n}
+                      </button>
+                    )
+                  })}
+                  <button className="adm-btn-ghost sm" disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '5px 12px' }}>Next →</button>
+                </div>
+              )}
+            </div>
+          </>)}
         </div>
       ) : (
         /* ─── ORDER DETAIL ─────────────────────────────────────────── */
@@ -3752,6 +3783,7 @@ function ExtrasTab({ extras, setExtras, flash }) {
 function ReferralsTab({ referrals, setReferrals, flash }) {
   const [noteId,    setNoteId]    = useState(null)
   const [noteText,  setNoteText]  = useState('')
+  const [page,      setPage]      = useState(1)
 
   async function updateReferral(id, update) {
     const { error } = await supabase.from('referrals').update(update).eq('id', id)
@@ -3777,6 +3809,10 @@ function ReferralsTab({ referrals, setReferrals, flash }) {
     converted: { label: 'Converted', bg: '#FFFBE6', color: '#1E3070', border: '#FFF1AA' },
     declined:  { label: 'Declined',  bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
   }
+  const REFERRALS_PAGE_SIZE = 10
+  const totalPages = Math.max(1, Math.ceil(referrals.length / REFERRALS_PAGE_SIZE))
+  const safePage   = Math.min(page, totalPages)
+  const paginated  = referrals.slice((safePage - 1) * REFERRALS_PAGE_SIZE, safePage * REFERRALS_PAGE_SIZE)
 
   return (
     <div style={{ padding: '0 0 48px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -3806,9 +3842,9 @@ function ReferralsTab({ referrals, setReferrals, flash }) {
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No referrals yet</div>
           <div style={{ fontSize: 13 }}>They'll appear here when clients share their referral link.</div>
         </div>
-      ) : (
+      ) : (<>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {referrals.map(r => {
+          {paginated.map(r => {
             const s = STATUS[r.status] || STATUS.pending
             const initials = (r.referrer?.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
             return (
@@ -3909,16 +3945,47 @@ function ReferralsTab({ referrals, setReferrals, flash }) {
             )
           })}
         </div>
-      )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, padding: '14px 0 2px', borderTop: '1px solid #f1f5f9', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>
+            Showing {(safePage - 1) * REFERRALS_PAGE_SIZE + 1}–{Math.min(safePage * REFERRALS_PAGE_SIZE, referrals.length)} of {referrals.length} referral{referrals.length !== 1 ? 's' : ''}
+          </span>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="adm-btn-ghost sm" disabled={safePage === 1} onClick={() => setPage(p => p - 1)} style={{ padding: '5px 12px' }}>← Prev</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => {
+                if (totalPages > 7) {
+                  if (n !== 1 && n !== totalPages && Math.abs(n - safePage) > 2) {
+                    if (n === safePage - 3 || n === safePage + 3) return <span key={n} style={{ color: '#94a3b8', padding: '0 4px', fontSize: 13 }}>…</span>
+                    return null
+                  }
+                }
+                return (
+                  <button key={n} onClick={() => setPage(n)}
+                    className={n === safePage ? 'adm-btn-primary sm' : 'adm-btn-ghost sm'}
+                    style={{ padding: '5px 10px', minWidth: 34, fontWeight: n === safePage ? 800 : 600 }}>
+                    {n}
+                  </button>
+                )
+              })}
+              <button className="adm-btn-ghost sm" disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '5px 12px' }}>Next →</button>
+            </div>
+          )}
+        </div>
+      </>)}
     </div>
   )
 }
 
 // ─── Reviews Tab ───────────────────────────────────────────────────────────
 function ReviewsTab({ reviews }) {
+  const [page, setPage] = useState(1)
   const avg = reviews.length
     ? (reviews.reduce((s, r) => s + r.stars, 0) / reviews.length).toFixed(1)
     : null
+  const REVIEWS_PAGE_SIZE = 10
+  const totalPages = Math.max(1, Math.ceil(reviews.length / REVIEWS_PAGE_SIZE))
+  const safePage   = Math.min(page, totalPages)
+  const paginated  = reviews.slice((safePage - 1) * REVIEWS_PAGE_SIZE, safePage * REVIEWS_PAGE_SIZE)
 
   return (
     <div className="adm-section">
@@ -3933,9 +4000,9 @@ function ReviewsTab({ reviews }) {
 
       {reviews.length === 0 ? (
         <p style={{ color: '#94a3b8', fontSize: 13 }}>No reviews submitted yet.</p>
-      ) : (
+      ) : (<>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {reviews.map(r => (
+          {paginated.map(r => (
             <div key={r.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div>
@@ -3965,7 +4032,33 @@ function ReviewsTab({ reviews }) {
             </div>
           ))}
         </div>
-      )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, padding: '14px 0 2px', borderTop: '1px solid #f1f5f9', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>
+            Showing {(safePage - 1) * REVIEWS_PAGE_SIZE + 1}–{Math.min(safePage * REVIEWS_PAGE_SIZE, reviews.length)} of {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+          </span>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="adm-btn-ghost sm" disabled={safePage === 1} onClick={() => setPage(p => p - 1)} style={{ padding: '5px 12px' }}>← Prev</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => {
+                if (totalPages > 7) {
+                  if (n !== 1 && n !== totalPages && Math.abs(n - safePage) > 2) {
+                    if (n === safePage - 3 || n === safePage + 3) return <span key={n} style={{ color: '#94a3b8', padding: '0 4px', fontSize: 13 }}>…</span>
+                    return null
+                  }
+                }
+                return (
+                  <button key={n} onClick={() => setPage(n)}
+                    className={n === safePage ? 'adm-btn-primary sm' : 'adm-btn-ghost sm'}
+                    style={{ padding: '5px 10px', minWidth: 34, fontWeight: n === safePage ? 800 : 600 }}>
+                    {n}
+                  </button>
+                )
+              })}
+              <button className="adm-btn-ghost sm" disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '5px 12px' }}>Next →</button>
+            </div>
+          )}
+        </div>
+      </>)}
     </div>
   )
 }
