@@ -32,29 +32,39 @@ serve(async (req) => {
     const portalUrl = Deno.env.get('PORTAL_URL') ?? 'https://portal.ballycastleclimbingframes.co.uk/portal'
     const ghlStage1 = Deno.env.get('GHL_STAGE_1') // "Order Confirmed" stage ID in GHL
 
-    // GHL workflow webhooks use snake_case; direct GHL webhooks use camelCase nested objects.
-    // Support both formats.
+    // GHL sends opportunity data in multiple formats depending on the trigger type:
+    // - Direct/native webhook: flat top-level fields (payload.id, payload.pipelineStageId)
+    // - Workflow Webhook action: nested under payload.opportunity { id, pipelineStageId }
+    // - Workflow snake_case: payload.opportunity_id, payload.pipeline_stage_id
+    // Support all variants.
+    const opp = payload.opportunity ?? {}
+
     const opportunityId   = payload.id
+                         ?? opp.id                       // nested: payload.opportunity.id
                          ?? payload.opportunityId
-                         ?? payload.opportunity_id        // GHL workflow standard field
-                         ?? payload.ghl_opportunity_id   // custom data (camelCase key)
+                         ?? opp.opportunityId
+                         ?? payload.opportunity_id
+                         ?? payload.ghl_opportunity_id
                          ?? payload.ghl_opportunit        // truncated key variant
 
     const pipelineStageId = payload.pipelineStageId
+                         ?? opp.pipelineStageId          // nested: payload.opportunity.pipelineStageId
                          ?? payload.pipeline_stage_id
+                         ?? opp.pipeline_stage_id
                          ?? payload.stageId
-                         ?? payload.customData?.pipelineStageId  // GHL workflow nests custom data here
+                         ?? opp.stageId
+                         ?? payload.customData?.pipelineStageId
 
-    // Contact fields — workflow sends flat snake_case; direct webhooks nest under contact{}
-    const contact         = payload.contact ?? {}
-    const email           = contact.email   ?? payload.email
-    const phone           = contact.phone   ?? payload.phone   ?? ''
-    const address         = contact.address ?? payload.address ?? ''
+    // Contact fields — check nested opportunity.contact, top-level contact{}, then flat fields
+    const contact         = opp.contact ?? payload.contact ?? {}
+    const email           = contact.email   ?? payload.email   ?? opp.email
+    const phone           = contact.phone   ?? payload.phone   ?? opp.phone   ?? ''
+    const address         = contact.address ?? payload.address ?? opp.address ?? ''
 
-    const contactFullName = contact.name ?? payload.full_name ?? payload.contactName ?? ''
-    const firstName = contact.firstName ?? payload.first_name ?? payload.firstName
+    const contactFullName = contact.name ?? opp.contactName ?? payload.full_name ?? payload.contactName ?? ''
+    const firstName = contact.firstName ?? payload.first_name ?? payload.firstName ?? opp.firstName
       ?? (contactFullName ? contactFullName.split(' ')[0] : '')
-    const lastName  = contact.lastName  ?? payload.last_name  ?? payload.lastName
+    const lastName  = contact.lastName  ?? payload.last_name  ?? payload.lastName  ?? opp.lastName
       ?? (contactFullName ? contactFullName.split(' ').slice(1).join(' ') : '')
 
     console.log('Resolved fields:', JSON.stringify({ opportunityId, pipelineStageId, email, firstName, lastName }))
