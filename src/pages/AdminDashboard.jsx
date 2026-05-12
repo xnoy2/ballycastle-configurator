@@ -938,7 +938,7 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
 
   // ── edit state ──
   const [editTarget, setEditTarget] = useState(null)
-  const [editForm,   setEditForm]   = useState({ name: '', phone: '' })
+  const [editForm,   setEditForm]   = useState({ name: '', email: '', phone: '' })
   const [editBusy,   setEditBusy]   = useState(false)
   const [editErr,    setEditErr]    = useState('')
 
@@ -1107,13 +1107,14 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
     const table = editTarget._type === 'client' ? 'client_profiles' : 'worker_profiles'
     const { error } = await supabase.from(table).update({
       name:  editForm.name.trim(),
+      email: editForm.email.trim(),
       phone: editForm.phone.trim() || null,
     }).eq('id', editTarget._raw.id)
     if (error) { setEditErr(error.message); setEditBusy(false); return }
     if (editTarget._type === 'client') {
-      setClients(p => p.map(c => c.id === editTarget._raw.id ? { ...c, name: editForm.name.trim(), phone: editForm.phone.trim() || null } : c))
+      setClients(p => p.map(c => c.id === editTarget._raw.id ? { ...c, name: editForm.name.trim(), email: editForm.email.trim(), phone: editForm.phone.trim() || null } : c))
     } else {
-      setWorkers(p => p.map(w => w.id === editTarget._raw.id ? { ...w, name: editForm.name.trim(), phone: editForm.phone.trim() || null } : w))
+      setWorkers(p => p.map(w => w.id === editTarget._raw.id ? { ...w, name: editForm.name.trim(), email: editForm.email.trim(), phone: editForm.phone.trim() || null } : w))
     }
     flash('Profile updated')
     setEditTarget(null)
@@ -1167,6 +1168,10 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
               <label>
                 Full Name
                 <input autoFocus value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name" required />
+              </label>
+              <label>
+                Email
+                <input type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" required />
               </label>
               <label>
                 Phone
@@ -1437,7 +1442,7 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
                     {u._type === 'client' && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                          onClick={() => { setEditTarget(u); setEditForm({ name: u.name || '', phone: u.phone || '' }); setEditErr('') }}>
+                          onClick={() => { setEditTarget(u); setEditForm({ name: u.name || '', email: u.email || '', phone: u.phone || '' }); setEditErr('') }}>
                           ✏️ Edit
                         </button>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
@@ -1459,7 +1464,7 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
                     {u._type === 'worker' && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                          onClick={() => { setEditTarget(u); setEditForm({ name: u.name || '', phone: u.phone || '' }); setEditErr('') }}>
+                          onClick={() => { setEditTarget(u); setEditForm({ name: u.name || '', email: u.email || '', phone: u.phone || '' }); setEditErr('') }}>
                           ✏️ Edit
                         </button>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
