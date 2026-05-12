@@ -936,6 +936,12 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
   const [workerLinkResult,     setWorkerLinkResult]     = useState(null)
   const [generatingWorkerLink, setGeneratingWorkerLink] = useState(null)
 
+  // ── edit state ──
+  const [editTarget, setEditTarget] = useState(null)
+  const [editForm,   setEditForm]   = useState({ name: '', phone: '' })
+  const [editBusy,   setEditBusy]   = useState(false)
+  const [editErr,    setEditErr]    = useState('')
+
   // ── client actions ──
   async function createClient(e) {
     e.preventDefault()
@@ -1094,6 +1100,26 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
     flash('Worker removed')
   }
 
+  async function saveEdit(e) {
+    e.preventDefault()
+    if (!editForm.name.trim()) { setEditErr('Name is required.'); return }
+    setEditBusy(true); setEditErr('')
+    const table = editTarget._type === 'client' ? 'client_profiles' : 'worker_profiles'
+    const { error } = await supabase.from(table).update({
+      name:  editForm.name.trim(),
+      phone: editForm.phone.trim() || null,
+    }).eq('id', editTarget._raw.id)
+    if (error) { setEditErr(error.message); setEditBusy(false); return }
+    if (editTarget._type === 'client') {
+      setClients(p => p.map(c => c.id === editTarget._raw.id ? { ...c, name: editForm.name.trim(), phone: editForm.phone.trim() || null } : c))
+    } else {
+      setWorkers(p => p.map(w => w.id === editTarget._raw.id ? { ...w, name: editForm.name.trim(), phone: editForm.phone.trim() || null } : w))
+    }
+    flash('Profile updated')
+    setEditTarget(null)
+    setEditBusy(false)
+  }
+
   // ── build unified list ──
   const adminEntries = (admins || []).map(a => ({
     _type:   'admin',
@@ -1131,6 +1157,30 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
   return (
     <div className="adm-section">
       {confirmModal}
+
+      {/* ── Edit profile modal ── */}
+      {editTarget && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setEditTarget(null); setEditErr('') } }}>
+          <div className="adm-modal">
+            <h3>✏️ Edit {editTarget._type === 'client' ? 'Client' : 'Worker'} Profile</h3>
+            <form className="adm-modal-form" onSubmit={saveEdit}>
+              <label>
+                Full Name
+                <input autoFocus value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name" required />
+              </label>
+              <label>
+                Phone
+                <input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} placeholder="+44 7700 000000" />
+              </label>
+              {editErr && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{editErr}</p>}
+              <div className="adm-modal-actions">
+                <button type="submit" className="adm-btn-primary" disabled={editBusy}>{editBusy ? 'Saving…' : 'Save Changes'}</button>
+                <button type="button" className="adm-btn-ghost" onClick={() => { setEditTarget(null); setEditErr('') }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Client login link modal ── */}
       {linkResult && (
@@ -1387,6 +1437,10 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
                     {u._type === 'client' && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          onClick={() => { setEditTarget(u); setEditForm({ name: u.name || '', phone: u.phone || '' }); setEditErr('') }}>
+                          ✏️ Edit
+                        </button>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                           disabled={generatingFor === u.email}
                           onClick={() => getLoginLink(u.email)}>
                           {generatingFor === u.email ? '…' : '🔗 Login Link'}
@@ -1404,6 +1458,10 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
                     )}
                     {u._type === 'worker' && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          onClick={() => { setEditTarget(u); setEditForm({ name: u.name || '', phone: u.phone || '' }); setEditErr('') }}>
+                          ✏️ Edit
+                        </button>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                           disabled={generatingWorkerLink === u.email}
                           onClick={() => getWorkerLoginLink(u.email)}>
