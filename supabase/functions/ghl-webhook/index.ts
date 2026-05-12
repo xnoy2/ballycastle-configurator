@@ -39,21 +39,21 @@ serve(async (req) => {
     // Support all variants.
     const opp = payload.opportunity ?? {}
 
-    const opportunityId   = payload.id
-                         ?? opp.id                       // nested: payload.opportunity.id
-                         ?? payload.opportunityId
-                         ?? opp.opportunityId
-                         ?? payload.opportunity_id
-                         ?? payload.ghl_opportunity_id
-                         ?? payload.ghl_opportunit        // truncated key variant
+    let opportunityId   = payload.id
+                      ?? opp.id                       // nested: payload.opportunity.id
+                      ?? payload.opportunityId
+                      ?? opp.opportunityId
+                      ?? payload.opportunity_id
+                      ?? payload.ghl_opportunity_id
+                      ?? payload.ghl_opportunit        // truncated key variant
 
-    const pipelineStageId = payload.pipelineStageId
-                         ?? opp.pipelineStageId          // nested: payload.opportunity.pipelineStageId
-                         ?? payload.pipeline_stage_id
-                         ?? opp.pipeline_stage_id
-                         ?? payload.stageId
-                         ?? opp.stageId
-                         ?? payload.customData?.pipelineStageId
+    let pipelineStageId = payload.pipelineStageId
+                       ?? opp.pipelineStageId          // nested: payload.opportunity.pipelineStageId
+                       ?? payload.pipeline_stage_id
+                       ?? opp.pipeline_stage_id
+                       ?? payload.stageId
+                       ?? opp.stageId
+                       ?? payload.customData?.pipelineStageId
 
     // Contact fields — check nested opportunity.contact, top-level contact{}, then flat fields
     const contact         = opp.contact ?? payload.contact ?? {}
@@ -68,6 +68,52 @@ serve(async (req) => {
       ?? (contactFullName ? contactFullName.split(' ').slice(1).join(' ') : '')
 
     console.log('Resolved fields:', JSON.stringify({ opportunityId, pipelineStageId, email, firstName, lastName }))
+
+    // ── GHL API fallback ─────────────────────────────────────────────────────
+    // GHL Workflow "Webhook" action sends contact-only data by default (no opportunity
+    // fields). When opportunityId or pipelineStageId is missing but we have an email,
+    // query the GHL API to find the contact's most-recent opportunity in our pipeline.
+    if ((!opportunityId || !pipelineStageId) && email) {
+      const ghlApiKey     = Deno.env.get('GHL_API_KEY')
+      const ghlLocationId = Deno.env.get('GHL_LOCATION_ID')
+      const ghlPipelineId = Deno.env.get('GHL_PIPELINE_ID') ?? 'Rki3r8dMJp0elw44sK5C'
+
+      if (ghlApiKey && ghlLocationId) {
+        try {
+          // 1. Find contact by email
+          const contactRes  = await fetch(
+            `https://services.leadconnectorhq.com/contacts/?locationId=${ghlLocationId}&query=${encodeURIComponent(email)}`,
+            { headers: { 'Authorization': `Bearer ${ghlApiKey}`, 'Version': '2021-07-28' } }
+          )
+          const contactData = await contactRes.json()
+          const ghlContactId = contactData?.contacts?.[0]?.id
+          console.log('GHL fallback contact lookup:', JSON.stringify({ email, ghlContactId }))
+
+          if (ghlContactId) {
+            // 2. Find opportunities for this contact in our pipeline
+            const oppRes  = await fetch(
+              `https://services.leadconnectorhq.com/opportunities/search?location_id=${ghlLocationId}&contact_id=${ghlContactId}&pipeline_id=${ghlPipelineId}`,
+              { headers: { 'Authorization': `Bearer ${ghlApiKey}`, 'Version': '2021-07-28' } }
+            )
+            const oppData = await oppRes.json()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const opps: any[] = oppData?.opportunities ?? []
+            console.log('GHL fallback opportunity lookup:', JSON.stringify({ count: opps.length, opps: opps.map((o: any) => ({ id: o.id, stageId: o.pipelineStageId })) }))
+
+            // Pick the most recent opportunity in the BCF pipeline
+            const bcfOpp = opps[0]
+            if (bcfOpp) {
+              if (!opportunityId)   opportunityId   = bcfOpp.id
+              if (!pipelineStageId) pipelineStageId = bcfOpp.pipelineStageId
+              console.log('GHL fallback resolved:', JSON.stringify({ opportunityId, pipelineStageId }))
+            }
+          }
+        } catch (ghlErr) {
+          const msg = ghlErr instanceof Error ? ghlErr.message : String(ghlErr)
+          console.warn('GHL API fallback error (non-fatal):', msg)
+        }
+      }
+    }
 
     if (!opportunityId || !pipelineStageId) {
       return new Response(JSON.stringify({ skipped: true, reason: 'Missing opportunityId or pipelineStageId' }), {
@@ -102,8 +148,15 @@ serve(async (req) => {
         }),
       })
 
-      const createData = await createRes.json()
-      console.log('create-client result:', JSON.stringify(createData))
+      const createText = await createRes.text()
+      console.log('create-client result:', createRes.status, createText)
+
+      let createData: Record<string, unknown> = {}
+      try { createData = JSON.parse(createText) } catch { createData = { raw: createText } }
+
+      if (!createRes.ok || createData.error || createData.code) {
+        throw new Error(`create-client failed (${createRes.status}): ${createText}`)
+      }
 
       return new Response(JSON.stringify({ success: true, action: 'client_created', ...createData }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },

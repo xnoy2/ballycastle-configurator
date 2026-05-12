@@ -908,11 +908,13 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
   const [page,        setPage]        = useState(1)
   const PAGE_SIZE = 10
 
+  // ── add user (unified) state ──
+  const [addingUser,    setAddingUser]    = useState(false)
+  const [userForm,      setUserForm]      = useState({ name: '', email: '', phone: '', role: 'client' })
+  const [userErr,       setUserErr]       = useState('')
+  const [userBusy,      setUserBusy]      = useState(false)
+
   // ── client state ──
-  const [adding,        setAdding]        = useState(false)
-  const [clientForm,    setClientForm]    = useState({ name: '', email: '', phone: '' })
-  const [clientErr,     setClientErr]     = useState('')
-  const [clientBusy,    setClientBusy]    = useState(false)
   const [linkResult,    setLinkResult]    = useState(null)   // { email, link }
   const [generatingFor, setGeneratingFor] = useState(null)   // email string
   const [tempPwdResult, setTempPwdResult] = useState(null)   // { email, password }
@@ -923,10 +925,6 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
 
   // ── worker state ──
   const [doConfirm, confirmModal]              = useConfirm()
-  const [addingWorker,         setAddingWorker]         = useState(false)
-  const [workerForm,           setWorkerForm]           = useState({ name: '', email: '', phone: '' })
-  const [workerErr,            setWorkerErr]            = useState('')
-  const [workerBusy,           setWorkerBusy]           = useState(false)
   const [pwdWorker,            setPwdWorker]            = useState(null)
   const [customPwd,            setCustomPwd]            = useState('')
   const [generatedPwd,         setGeneratedPwd]         = useState('')
@@ -942,28 +940,39 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
   const [editBusy,   setEditBusy]   = useState(false)
   const [editErr,    setEditErr]    = useState('')
 
-  // ── client actions ──
-  async function createClient(e) {
+  // ── GHL sync state ──
+  const [syncBusy,   setSyncBusy]   = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
+
+  // ── unified add-user action ──
+  async function createUser(e) {
     e.preventDefault()
-    if (!clientForm.name.trim() || !clientForm.email.trim()) { setClientErr('Name and email are required.'); return }
-    setClientBusy(true); setClientErr('')
-    const { data, error } = await supabase.functions.invoke('create-client', {
-      body: {
-        first_name:  clientForm.name.split(' ')[0],
-        last_name:   clientForm.name.split(' ').slice(1).join(' '),
-        email:       clientForm.email.trim(),
-        phone:       clientForm.phone.trim(),
-        send_email:  false,
-        redirect_to: `${window.location.origin}/portal`,
-      }
-    })
-    setClientBusy(false)
-    if (error) { setClientErr(error.message); return }
-    setAdding(false)
-    setClientForm({ name: '', email: '', phone: '' })
+    const { name, email, phone, role } = userForm
+    if (!name.trim() || !email.trim()) { setUserErr('Name and email are required.'); return }
+    setUserBusy(true); setUserErr('')
+    const body = {
+      first_name:  name.trim().split(' ')[0],
+      last_name:   name.trim().split(' ').slice(1).join(' '),
+      email:       email.trim(),
+      phone:       phone.trim(),
+      role,
+      send_email:  false,
+      redirect_to: role === 'worker' ? `${window.location.origin}/worker` : `${window.location.origin}/portal`,
+      ...(role === 'client' ? { sync_to_ghl: true } : {}),
+    }
+    const { data, error } = await supabase.functions.invoke('create-client', { body })
+    setUserBusy(false)
+    if (error) { setUserErr(error.message); return }
+    setAddingUser(false)
+    setUserForm({ name: '', email: '', phone: '', role: 'client' })
     reload()
-    if (data?.magicLink) setLinkResult({ email: clientForm.email.trim(), link: data.magicLink })
-    else flash('Client account created')
+    if (role === 'client') {
+      if (data?.magicLink) setLinkResult({ email: email.trim(), link: data.magicLink })
+      else flash('Client account created')
+      if (data?.ghl_warning) flash(`GHL note: ${data.ghl_warning}`)
+    } else {
+      flash('Worker added — use "Temp Password" to send their credentials.')
+    }
   }
 
   async function getLoginLink(email) {
@@ -1067,29 +1076,6 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function createWorker(e) {
-    e.preventDefault()
-    if (!workerForm.name.trim() || !workerForm.email.trim()) { setWorkerErr('Name and email are required.'); return }
-    setWorkerBusy(true); setWorkerErr('')
-    const { data, error } = await supabase.functions.invoke('create-client', {
-      body: {
-        first_name:  workerForm.name.split(' ')[0],
-        last_name:   workerForm.name.split(' ').slice(1).join(' '),
-        email:       workerForm.email.trim(),
-        phone:       workerForm.phone.trim(),
-        role:        'worker',
-        send_email:  false,
-        redirect_to: `${window.location.origin}/worker`,
-      }
-    })
-    if (error) { setWorkerErr(error.message); setWorkerBusy(false); return }
-    flash('Worker added — use "Set & Email Password" in Users to send their credentials.')
-    setAddingWorker(false)
-    setWorkerForm({ name: '', email: '', phone: '' })
-    reload()
-    setWorkerBusy(false)
-  }
-
   async function deleteWorker(worker) {
     if (!await doConfirm(`Remove ${worker.name} as a worker?`, 'Remove')) return
     await supabase.from('worker_profiles').delete().eq('id', worker.id)
@@ -1119,6 +1105,17 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
     flash('Profile updated')
     setEditTarget(null)
     setEditBusy(false)
+  }
+
+  // ── GHL sync ──
+  async function syncFromGHL() {
+    setSyncBusy(true)
+    setSyncResult(null)
+    const { data, error } = await supabase.functions.invoke('sync-ghl', {})
+    setSyncBusy(false)
+    if (error) { setSyncResult({ error: error.message }); return }
+    setSyncResult(data)
+    if (data?.created > 0) reload()
   }
 
   // ── build unified list ──
@@ -1214,12 +1211,12 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
       {tempPwdResult && (
         <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setTempPwdResult(null) }}>
           <div className="adm-modal" style={{ maxWidth: 480 }}>
-            <h3>✅ Temp Password Sent</h3>
+            <h3>🔑 Temporary Password Generated</h3>
             <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
-              An email has been sent to <strong>{tempPwdResult.email}</strong> with their temporary password and a link to the portal.
+              A new temporary password has been set for <strong>{tempPwdResult.email}</strong>. No email has been sent — share this password with the client directly.
             </p>
             <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Temp Password (admin copy)</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Temporary Password</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <code style={{ flex: 1, fontSize: 20, fontWeight: 800, color: '#1E3070', letterSpacing: '0.1em' }}>{tempPwdResult.password}</code>
                 <button className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px', flexShrink: 0 }}
@@ -1229,7 +1226,7 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
               </div>
             </div>
             <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>
-              The client should log in and change this password from their portal settings.
+              Ask the client to log in and change this password from their portal settings.
             </p>
             <div className="adm-modal-actions">
               <button className="adm-btn-ghost" onClick={() => setTempPwdResult(null)}>Close</button>
@@ -1280,38 +1277,46 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
         </div>
       )}
 
-      {/* ── Add Client modal ── */}
-      {adding && (
-        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setAdding(false) }}>
+      {/* ── Add User modal (unified) ── */}
+      {addingUser && (
+        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setAddingUser(false); setUserErr('') } }}>
           <div className="adm-modal">
-            <h3>Create Client Account</h3>
-            <form className="adm-modal-form" onSubmit={createClient}>
-              <label>Full Name <input autoFocus value={clientForm.name} onChange={e => setClientForm(p => ({ ...p, name: e.target.value }))} placeholder="Sarah & David Henderson" /></label>
-              <label>Email <input type="email" value={clientForm.email} onChange={e => setClientForm(p => ({ ...p, email: e.target.value }))} placeholder="sarah@example.com" /></label>
-              <label>Phone <input value={clientForm.phone} onChange={e => setClientForm(p => ({ ...p, phone: e.target.value }))} placeholder="07911 123456" /></label>
-              {clientErr && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{clientErr}</p>}
+            <h3>Add User</h3>
+            <form className="adm-modal-form" onSubmit={createUser}>
+              <label>
+                Role
+                <select value={userForm.role} onChange={e => setUserForm(p => ({ ...p, role: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff' }}>
+                  <option value="client">Client</option>
+                  <option value="worker">Worker</option>
+                </select>
+              </label>
+              <label>
+                Full Name
+                <input autoFocus value={userForm.name} onChange={e => setUserForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder={userForm.role === 'client' ? 'Sarah & David Henderson' : 'Jamie Robinson'} required />
+              </label>
+              <label>
+                Email
+                <input type="email" value={userForm.email} onChange={e => setUserForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder={userForm.role === 'client' ? 'sarah@example.com' : 'jamie@bcf.co.uk'} required />
+              </label>
+              <label>
+                Phone
+                <input value={userForm.phone} onChange={e => setUserForm(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="07911 123456" />
+              </label>
+              {userForm.role === 'client' && (
+                <p style={{ fontSize: 12, color: '#64748b', margin: 0, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '6px 10px' }}>
+                  Client will also be added to GHL "Order Confirmed" stage automatically.
+                </p>
+              )}
+              {userErr && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{userErr}</p>}
               <div className="adm-modal-actions">
-                <button type="submit" className="adm-btn-primary" disabled={clientBusy}>{clientBusy ? 'Creating…' : 'Create & Get Login Link'}</button>
-                <button type="button" className="adm-btn-ghost" onClick={() => { setAdding(false); setClientErr('') }}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Add Worker modal ── */}
-      {addingWorker && (
-        <div className="adm-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setAddingWorker(false) }}>
-          <div className="adm-modal">
-            <h3>Add Worker</h3>
-            <form className="adm-modal-form" onSubmit={createWorker}>
-              <label>Full Name <input autoFocus value={workerForm.name} onChange={e => setWorkerForm(p => ({ ...p, name: e.target.value }))} placeholder="Jamie Robinson" /></label>
-              <label>Email <input type="email" value={workerForm.email} onChange={e => setWorkerForm(p => ({ ...p, email: e.target.value }))} placeholder="jamie@bcf.co.uk" /></label>
-              <label>Phone <input value={workerForm.phone} onChange={e => setWorkerForm(p => ({ ...p, phone: e.target.value }))} placeholder="028 2044 0670" /></label>
-              {workerErr && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{workerErr}</p>}
-              <div className="adm-modal-actions">
-                <button type="submit" className="adm-btn-primary" disabled={workerBusy}>{workerBusy ? 'Adding…' : 'Add Worker'}</button>
-                <button type="button" className="adm-btn-ghost" onClick={() => { setAddingWorker(false); setWorkerErr('') }}>Cancel</button>
+                <button type="submit" className="adm-btn-primary" disabled={userBusy}>
+                  {userBusy ? 'Creating…' : userForm.role === 'client' ? 'Create Client & Get Login Link' : 'Add Worker'}
+                </button>
+                <button type="button" className="adm-btn-ghost" onClick={() => { setAddingUser(false); setUserErr('') }}>Cancel</button>
               </div>
             </form>
           </div>
@@ -1379,12 +1384,42 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
         </div>
       )}
 
+      {/* ── GHL sync result banner ── */}
+      {syncResult && (
+        <div style={{
+          background: syncResult.error ? '#fef2f2' : '#f0fdf4',
+          border: `1px solid ${syncResult.error ? '#fca5a5' : '#86efac'}`,
+          borderRadius: 10, padding: '10px 16px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 13, color: syncResult.error ? '#dc2626' : '#166534' }}>
+            {syncResult.error
+              ? `Sync failed: ${syncResult.error}`
+              : syncResult.created === 0
+                ? `All ${syncResult.total} GHL opportunities already in BCF — nothing new to sync.`
+                : `Synced ${syncResult.created} new client${syncResult.created !== 1 ? 's' : ''} from GHL (${syncResult.skipped} already existed).`
+            }
+            {syncResult.errors?.length > 0 && (
+              <span style={{ display: 'block', color: '#b45309', marginTop: 4 }}>
+                {syncResult.errors.length} error(s): {syncResult.errors.map(e => e.email).join(', ')}
+              </span>
+            )}
+          </span>
+          <button className="adm-btn-ghost sm" onClick={() => setSyncResult(null)}>✕</button>
+        </div>
+      )}
+
       {/* ── Header: title + add buttons ── */}
       <div className="adm-section-header" style={{ flexWrap: 'wrap', gap: 8 }}>
         <h2>Users ({allUsers.length})</h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="adm-btn-primary" onClick={() => setAdding(true)}>+ Add Client</button>
-          <button className="adm-btn-ghost" onClick={() => setAddingWorker(true)}>+ Add Worker</button>
+          <button className="adm-btn-primary" onClick={() => { setAddingUser(true); setUserForm({ name: '', email: '', phone: '', role: 'client' }); setUserErr('') }}>+ Add User</button>
+          <button className="adm-btn-ghost" onClick={syncFromGHL} disabled={syncBusy}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {syncBusy
+              ? <><span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #1E3070', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Syncing…</>
+              : '↻ Sync GHL'}
+          </button>
         </div>
       </div>
 
@@ -1474,11 +1509,11 @@ function UsersTab({ clients, setClients, workers, setWorkers, admins, session, f
                         </button>
                         <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                           onClick={() => openPwdModal(u._raw)}>
-                          🔑 Set Password
+                          🔑 Temp Password
                         </button>
-                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#dc2626' }}
+                        <button className="adm-btn-ghost sm" style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#dc2626', borderColor: '#fca5a5' }}
                           onClick={() => deleteWorker(u._raw)}>
-                          🗑️ Remove
+                          🗑️ Delete
                         </button>
                       </div>
                     )}

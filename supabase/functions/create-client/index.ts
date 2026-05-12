@@ -70,8 +70,9 @@ async function syncToGHL(params: {
     if (!contactId) throw new Error(`Contact created but no ID returned: ${JSON.stringify(contactRes)}`)
   }
 
+  let createdOpportunityId: string | null = null
   if (!existingOpportunityId) {
-    await ghlRequest('/opportunities/', 'POST', {
+    const oppRes = await ghlRequest('/opportunities/', 'POST', {
       name:            `${first_name} ${last_name} — ${orderNum}`,
       pipelineId,
       pipelineStageId: stageId,
@@ -79,9 +80,10 @@ async function syncToGHL(params: {
       locationId,
       status:          'open',
     }, apiKey)
+    createdOpportunityId = oppRes?.opportunity?.id ?? null
   }
 
-  return { contactId, warning: ghlWarning }
+  return { contactId, warning: ghlWarning, opportunityId: createdOpportunityId }
 }
 
 serve(async (req) => {
@@ -256,6 +258,9 @@ serve(async (req) => {
             existingOpportunityId: ghl_opportunity_id,
           })
           if (result.warning) ghlSyncWarning = result.warning
+          if (result.opportunityId) {
+            await supabase.from('orders').update({ ghl_opportunity_id: result.opportunityId }).eq('id', order.id)
+          }
         } catch (ghlErr) {
           const msg = ghlErr instanceof Error ? ghlErr.message : String(ghlErr)
           console.warn('GHL sync warning:', msg)
