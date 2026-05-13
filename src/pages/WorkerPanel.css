@@ -351,8 +351,8 @@
   font-size: 13px;
 }
 .wp-detail-row:last-of-type { border-bottom: none; }
-.wp-detail-row span { color: #94a3b8; }
-.wp-detail-row strong { color: #1E3070; font-weight: 700; text-align: right; }
+.wp-detail-row span { color: #94a3b8; flex-shrink: 0; }
+.wp-detail-row strong { color: #1E3070; font-weight: 700; text-align: right; word-break: break-word; min-width: 0; }
 
 .wp-access-notes {
   margin-top: 10px;

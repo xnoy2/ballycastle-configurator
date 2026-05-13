@@ -891,6 +891,25 @@ export default function BCFPortal() {
     if (tab === 'photos' && !allPhotosLoaded && !loadingAllPhotos) loadAllPhotos()
   }, [tab, allPhotosLoaded, loadingAllPhotos])
 
+  // 🎂 Confetti burst when birthday client opens the Delivery tab
+  useEffect(() => {
+    if (tab !== 'delivery' || !order?.is_birthday_booking) return
+    let cancelled = false
+    import('canvas-confetti').then(({ default: confetti }) => {
+      if (cancelled) return
+      const end = Date.now() + 2800
+      const colors = ['#F9C800', '#1E3070', '#ff6b9d', '#ff4757', '#ffffff', '#ffa502']
+      const frame = () => {
+        if (cancelled) return
+        confetti({ particleCount: 6, angle: 60,  spread: 55, origin: { x: 0 }, colors })
+        confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors })
+        if (Date.now() < end) requestAnimationFrame(frame)
+      }
+      frame()
+    })
+    return () => { cancelled = true }
+  }, [tab, order?.is_birthday_booking])
+
   if (authLoading) return <LoadingScreen subtitle="Loading your portal…" />
   if (!session)    return null
 
@@ -911,8 +930,11 @@ export default function BCFPortal() {
     : 'TBC'
   const installWindow = order?.installation_window || 'TBC'
   const address       = order?.address || '—'
-  const workerName    = order?.worker?.name  || 'BCF Team'
-  const workerPhone   = order?.worker?.phone || '028 2044 0670'
+  const workerName       = order?.worker?.name  || 'BCF Team'
+  const workerPhone      = order?.worker?.phone || '028 2044 0670'
+  const productOrder     = order?.product_order || null
+  const orderNotes       = order?.notes || null
+  const isBirthdayBooking = !!order?.is_birthday_booking
   const unreadCount   = notifications.filter(n => !n.read).length
 
   // Build completion — all stages must be 'done' (including final Handover)
@@ -1658,6 +1680,18 @@ export default function BCFPortal() {
         {tab === 'delivery' && (
           <div>
             <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1E3070', marginBottom: 16 }}>🚚 Delivery & Installation</h2>
+
+            {/* Birthday banner */}
+            {isBirthdayBooking && (
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '14px 20px', background: 'linear-gradient(135deg, #FFFDE7, #FFF9C4)', border: '2px solid #F9C800', borderRadius: 14, marginBottom: 20 }}>
+                <span style={{ fontSize: 32, flexShrink: 0 }}>🎂</span>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                  <div style={{ fontFamily: "'Fredoka One'", fontSize: 17, color: '#7a5800' }}>Birthday Special Booking!</div>
+                  <div style={{ fontSize: 13, color: '#a16207', marginTop: 2 }}>We've noted this is a birthday gift — we'll make it extra special on installation day! 🎉</div>
+                </div>
+              </div>
+            )}
+
             <div className="delivery-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
 
               {/* Left column — stacked cards, natural height */}
@@ -1668,6 +1702,12 @@ export default function BCFPortal() {
                   <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 10 }}>📅 Scheduled Date</div>
                   <div style={{ fontSize: 30, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'", lineHeight: 1.1 }}>{installDate}</div>
                   <div style={{ fontWeight: 700, color: '#475569', marginTop: 6, fontSize: 14 }}>{installWindow}</div>
+                  {productOrder && (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1.5px solid #f0f0f0', fontSize: 13 }}>
+                      <div style={{ fontWeight: 700, color: '#1E3070' }}>🪵 Your Climbing Frame</div>
+                      <div style={{ color: '#1e293b', marginTop: 4, fontWeight: 600, fontSize: 14 }}>{productOrder}</div>
+                    </div>
+                  )}
                   {address !== '—' && (
                     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1.5px solid #f0f0f0', fontSize: 13 }}>
                       <div style={{ fontWeight: 700, color: '#1E3070' }}>📍 Installation Address</div>
@@ -1675,6 +1715,14 @@ export default function BCFPortal() {
                     </div>
                   )}
                 </div>
+
+                {/* Notes from BCF (only shown if present) */}
+                {orderNotes && (
+                  <div className="card" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }}>
+                    <div style={{ fontFamily: "'Fredoka One'", fontSize: 17, color: '#1E3070', marginBottom: 8 }}>📌 Notes from BCF</div>
+                    <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{orderNotes}</p>
+                  </div>
+                )}
 
                 {/* Your Installer */}
                 <div className="card" style={{ background: 'linear-gradient(135deg, #e3f2fd, #f0f7ff)', border: '2px solid #90caf9' }}>

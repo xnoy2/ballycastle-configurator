@@ -337,6 +337,16 @@ function WorkerDashboard({ session }) {
 
                 {/* Client Info */}
                 <div className="wp-card">
+                  {/* Birthday booking alert */}
+                  {selectedJob.is_birthday_booking && (
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '12px 14px', background: '#FFFDE7', border: '2px solid #F9C800', borderRadius: 10, marginBottom: 14 }}>
+                      <span style={{ fontSize: 26, flexShrink: 0 }}>🎂</span>
+                      <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: '#7a5800' }}>Birthday Booking</div>
+                        <div style={{ fontSize: 12, color: '#a16207', marginTop: 2 }}>Remember to bring freebies for this installation!</div>
+                      </div>
+                    </div>
+                  )}
                   <div className="wp-card-title">👤 Client Details</div>
                   <div className="wp-detail-row">
                     <span>Name</span>
@@ -354,6 +364,18 @@ function WorkerDashboard({ session }) {
                     <span>Address</span>
                     <strong>{selectedJob.address || '—'}</strong>
                   </div>
+                  {selectedJob.product_order && (
+                    <div className="wp-detail-row">
+                      <span>Product</span>
+                      <strong>{selectedJob.product_order}</strong>
+                    </div>
+                  )}
+                  {selectedJob.notes && (
+                    <div style={{ marginTop: 10, padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>📌 Notes</div>
+                      <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{selectedJob.notes}</div>
+                    </div>
+                  )}
                   {selectedJob.access_notes && (
                     <div className="wp-access-notes">
                       <strong>📝 Access Notes:</strong> {selectedJob.access_notes}

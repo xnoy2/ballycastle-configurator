@@ -2359,6 +2359,8 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
         notifyClient(cid, '📅 Installation Date Set', `Your installation is scheduled for ${fmt}.`)
       } else if (field === 'installation_window' && value) {
         notifyClient(cid, '🕐 Installation Time Updated', `Your installation window has been updated to: ${value}`)
+      } else if (field === 'is_birthday_booking' && value === true) {
+        notifyClient(cid, '🎂 Birthday Booking Confirmed!', `We've noted this is a birthday booking — we'll make your installation day extra special! 🎉`)
       }
     }
   }
@@ -2870,6 +2872,71 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
                       <TimeRangePicker value={order.installation_window || ''} onSave={v => updateOrderField(order.id, 'installation_window', v)} />
                     </div>
                   </div>
+                  {/* Product / Notes / Birthday */}
+                  <div style={{ marginTop: 24, borderTop: '1px solid #f1f5f9', paddingTop: 20 }}>
+                    <div className="ord-section-title" style={{ marginBottom: 16 }}>Order Info</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {/* Product Order */}
+                      <div>
+                        <label className="adm-label">Product Order</label>
+                        <input
+                          className="adm-input"
+                          type="text"
+                          defaultValue={order.product_order || ''}
+                          placeholder="e.g. Rathlin Climbing Frame"
+                          onBlur={e => { if (e.target.value !== (order.product_order || '')) updateOrderField(order.id, 'product_order', e.target.value) }}
+                          style={{ fontSize: 14 }}
+                        />
+                      </div>
+                      {/* Notes */}
+                      <div>
+                        <label className="adm-label">Notes</label>
+                        <textarea
+                          className="adm-input"
+                          rows={3}
+                          defaultValue={order.notes || ''}
+                          placeholder="Internal notes about this order…"
+                          onBlur={e => { if (e.target.value !== (order.notes || '')) updateOrderField(order.id, 'notes', e.target.value) }}
+                          style={{ resize: 'vertical', minHeight: 76, lineHeight: 1.5 }}
+                        />
+                      </div>
+                      {/* Birthday Booking toggle card */}
+                      <div
+                        onClick={() => updateOrderField(order.id, 'is_birthday_booking', !order.is_birthday_booking)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '14px 16px',
+                          background: order.is_birthday_booking ? '#FFFDE7' : '#f8fafc',
+                          border: `2px solid ${order.is_birthday_booking ? '#F9C800' : '#e2e8f0'}`,
+                          borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 0', minWidth: 0 }}>
+                          <span style={{ fontSize: 22, flexShrink: 0 }}>🎂</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: order.is_birthday_booking ? '#7a5800' : '#1e293b' }}>Birthday Booking</div>
+                            <div style={{ fontSize: 12, color: order.is_birthday_booking ? '#a16207' : '#94a3b8', marginTop: 2 }}>
+                              {order.is_birthday_booking ? 'Remember to prepare freebies for this installation!' : 'Toggle on if this is a birthday booking'}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Toggle pill */}
+                        <div style={{
+                          width: 42, height: 24, borderRadius: 12, flexShrink: 0, marginLeft: 8,
+                          background: order.is_birthday_booking ? '#F9C800' : '#cbd5e1',
+                          position: 'relative', transition: 'background 0.2s',
+                        }}>
+                          <div style={{
+                            position: 'absolute', top: 3, left: order.is_birthday_booking ? 21 : 3,
+                            width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s',
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {(order.access_notes || accessPhotos[order.id]?.length > 0) && (
                     <div style={{ marginTop: 16, background: '#FFFBE6', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px' }}>
                       {order.access_notes && (
