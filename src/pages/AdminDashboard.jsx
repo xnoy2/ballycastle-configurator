@@ -117,7 +117,7 @@ function AdminPanel({ session }) {
       supabase.from('quotes').select('*').order('created_at', { ascending: false }),
       supabase.from('client_profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('worker_profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('orders').select('*, client:client_profiles(name,email), worker:worker_profiles(name), ghl_opportunity_id').order('created_at', { ascending: false }),
+      supabase.from('orders').select('*, client:client_profiles(name,email), worker:worker_profiles(name,avatar_url), ghl_opportunity_id').order('created_at', { ascending: false }),
       supabase.from('extras').select('*').order('sort_order'),
       supabase.from('build_stages').select('*').order('stage_number'),
       supabase.from('reviews').select('*, client:client_profiles(name,email)').order('created_at', { ascending: false }),
@@ -2224,7 +2224,7 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     // Refresh to pick up client-side changes (e.g. access_notes)
     const { data } = await supabase
       .from('orders')
-      .select('*, client:client_profiles(name,email), worker:worker_profiles(name), ghl_opportunity_id')
+      .select('*, client:client_profiles(name,email), worker:worker_profiles(name,avatar_url), ghl_opportunity_id')
       .eq('id', order.id)
       .single()
     if (data) {
@@ -2743,7 +2743,14 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
                       <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>#{order.order_number} · {order.client?.email}</div>
                     </div>
                     <div className="ord-list-meta">
-                      <span className="ord-worker-badge">{order.worker?.name || 'Unassigned'}</span>
+                      <span className="ord-worker-badge">
+                        {order.worker?.avatar_url
+                          ? <img src={order.worker.avatar_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                          : <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#1e40af', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, flexShrink: 0 }}>
+                              {(order.worker?.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                            </span>}
+                        {order.worker?.name || 'Unassigned'}
+                      </span>
                       <div className="ord-mini-progress">
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginBottom: 3 }}>
                           <span>Build</span>
@@ -2824,8 +2831,13 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
                   <div className="ord-header-meta">#{order.order_number} · {order.client?.email}</div>
                 </div>
                 <div className="ord-header-right">
-                  <span className="ord-worker-badge" style={{ fontSize: 13, padding: '6px 12px' }}>
-                    👷 {order.worker?.name || 'Unassigned'}
+                  <span className="ord-worker-badge" style={{ fontSize: 13, padding: '5px 12px 5px 5px' }}>
+                    {order.worker?.avatar_url
+                      ? <img src={order.worker.avatar_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                      : <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#1e40af', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                          {(order.worker?.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                        </span>}
+                    {order.worker?.name || 'Unassigned'}
                   </span>
                   <div>
                     <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, textAlign: 'right' }}>
