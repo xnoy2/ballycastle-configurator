@@ -42,8 +42,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
 }
 
 .wp-sidebar-logo {
@@ -63,6 +64,52 @@
   font-size: 11px;
   color: rgba(249,200,0,0.6);
   margin-top: 1px;
+}
+
+/* Worker profile card in sidebar */
+.wp-profile-card-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.wp-profile-card-mini:hover { background: rgba(255,255,255,0.06); }
+
+.wp-profile-avatar-mini {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(249,200,0,0.7);
+  overflow: hidden;
+  background: linear-gradient(135deg, #253080, #1E3070);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #F9C800;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.wp-profile-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wp-profile-card-role {
+  font-size: 11px;
+  color: rgba(249,200,0,0.6);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wp-sidebar-section {
@@ -142,8 +189,47 @@
 .wp-main {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.wp-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Sign out — only shown in topbar on mobile; hidden on desktop (sidebar has it) */
+.wp-topbar-signout {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.8);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.wp-topbar-signout:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+.wp-main-content {
+  padding: 24px;
+  flex: 1;
 }
 
 .wp-empty {
@@ -509,61 +595,300 @@
   min-height: 36px;
 }
 
+/* ── Notification Bell ───────────────────────────────────────────── */
+.wp-notif-wrap {
+  margin-left: auto;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.wp-notif-btn {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #1E3070;
+  position: relative;
+  transition: background 0.15s;
+}
+.wp-notif-btn:hover { background: #e2e8f0; }
+
+.wp-notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  background: #ef4444;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  border: 2px solid #1E3070;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+.wp-notif-dropdown {
+  position: fixed;
+  top: 62px;
+  right: 12px;
+  width: 320px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  z-index: 500;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.wp-notif-dhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 800;
+  font-size: 14px;
+  color: #1E3070;
+}
+
+.wp-notif-readall {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1E3070;
+  font-family: inherit;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.wp-notif-readall:hover { background: #f1f5f9; }
+
+.wp-notif-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.wp-notif-list { max-height: 360px; overflow-y: auto; }
+
+.wp-notif-item {
+  padding: 11px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  background: #fff;
+  transition: background 0.15s;
+}
+.wp-notif-item:hover { background: #f8fafc; }
+.wp-notif-item.unread { background: #FFFDE7; }
+.wp-notif-item.unread:hover { background: #FFF9C4; }
+
+.wp-notif-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.wp-notif-body {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wp-notif-time {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* ── Bottom Nav (mobile-only, shown via media query) ─────────────────── */
+.wp-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: #1E3070;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  z-index: 200;
+  align-items: stretch;
+}
+
+.wp-bottom-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, background 0.15s;
+  padding: 6px 4px;
+}
+.wp-bottom-tab > span:first-child { font-size: 20px; line-height: 1; }
+.wp-bottom-tab:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75); }
+.wp-bottom-tab.active { color: #F9C800; }
+
+.wp-bottom-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #253080, #1E3070);
+  border: 1.5px solid rgba(249,200,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #F9C800;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.wp-bottom-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 14px;
+  height: 14px;
+  background: #ef4444;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 800;
+  color: #fff;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+/* ── Topbar Logo (hidden on desktop, shown on mobile) ─────────────────── */
+.wp-topbar-logo { display: none; height: 30px; width: auto; }
+
+/* ── Mobile Jobs List View ────────────────────────────────────────────── */
+.wp-mobile-jobs-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+.wp-mobile-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.wp-mobile-jobs-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  padding: 0 4px;
+}
+
+.wp-mobile-job-card {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.wp-mobile-job-card:hover { border-color: #1E3070; box-shadow: 0 2px 10px rgba(30,48,112,0.12); }
+.wp-mobile-job-card:active { transform: scale(0.99); }
+
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .wp-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
-  .wp-shell { flex-direction: column; height: auto; min-height: 100dvh; overflow: auto; }
+  .wp-shell { flex-direction: column; height: 100dvh; overflow: hidden; }
 
-  /* Sidebar becomes a top strip */
-  .wp-sidebar {
-    width: 100%;
-    height: auto;
-    flex-direction: column;
-    overflow-x: unset;
-    flex-shrink: 0;
+  /* Hide sidebar — bottom nav replaces it */
+  .wp-sidebar { display: none; }
+
+  /* Main fills space between topbar and fixed bottom nav */
+  .wp-main { flex: 1; min-height: 0; overflow-y: auto; }
+
+  /* Topbar with logo + bell, dark navy */
+  .wp-topbar {
+    padding: 0 14px;
+    height: 52px;
+    background: linear-gradient(90deg, #192860, #1E3070);
+    border-bottom: none;
+    position: sticky;
+    top: 0;
+    z-index: 20;
   }
-  .wp-sidebar-header { padding: 12px 16px; }
+  .wp-topbar-logo { display: block; }
+  /* Bell on dark topbar */
+  .wp-notif-btn { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); }
+  .wp-notif-btn:hover { background: rgba(255,255,255,0.22); }
+  .wp-notif-badge { border-color: #1E3070; }
 
-  /* Job buttons in a horizontal scrollable row */
-  .wp-sidebar-section { display: none; }
-  .wp-no-jobs { padding: 8px 16px; }
+  /* Padding-bottom = bottom nav height + some breathing room */
+  .wp-main-content { padding: 12px 12px 80px; }
 
-  /* Wrap job buttons into a horizontal scroll strip */
-  .wp-jobs-row {
-    display: flex;
-    overflow-x: auto;
-    scrollbar-width: none;
-    gap: 6px;
-    padding: 8px 12px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-  }
-  .wp-jobs-row::-webkit-scrollbar { display: none; }
+  /* Notification dropdown floats above bottom nav */
+  .wp-notif-dropdown { bottom: 68px; top: auto; right: 10px; left: 10px; width: auto; }
 
-  .wp-job-btn {
-    border-left: none;
-    border-bottom: 3px solid transparent;
-    border-radius: 8px;
-    padding: 8px 14px;
-    white-space: nowrap;
-    min-width: 120px;
-    flex-shrink: 0;
-  }
-  .wp-job-btn.active {
-    background: rgba(249,200,0,0.18);
-    border-bottom-color: #F9C800;
-  }
-  .wp-job-btn-order { display: none; }
+  /* Show bottom nav */
+  .wp-bottom-nav { display: flex; }
 
-  .wp-signout {
-    display: none;
-  }
+  /* Hide topbar bell — bottom nav Alerts tab handles it */
+  .wp-notif-wrap { display: none; }
 
-  .wp-main { padding: 14px 12px; }
-  .wp-job-title { font-size: 20px; }
+  .wp-job-header { flex-direction: column; gap: 10px; }
+  .wp-job-title { font-size: 18px; }
+  .wp-progress-badge { align-self: flex-start; padding: 8px 14px; }
+  .wp-progress-pct { font-size: 20px; }
   .wp-card { padding: 14px; }
+
+  /* Profile panel scrollable on mobile */
+  .wp-profile-wrap { height: auto; }
+  .wp-profile-row { grid-template-columns: 1fr; }
+  .wp-profile-card { padding: 16px; }
 }
 
 @media (max-width: 480px) {
@@ -572,4 +897,129 @@
   .wp-btn-done,
   .wp-btn-progress { padding: 6px 10px; font-size: 11px; }
   .wp-flash { right: 12px; left: 12px; text-align: center; }
+  .wp-job-title { font-size: 16px; }
+  .wp-job-meta { font-size: 12px; gap: 8px; }
+}
+
+/* ── Worker Profile Panel ─────────────────────────────────────────── */
+.wp-profile-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.wp-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.wp-profile-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0;
+}
+
+.wp-profile-close {
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.wp-profile-close:hover { background: #e2e8f0; color: #1e293b; }
+
+.wp-profile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.wp-profile-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.wp-profile-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.wp-profile-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin-bottom: 20px;
+}
+
+/* Avatar */
+.wp-avatar-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #F9C800;
+  background: linear-gradient(135deg, #1E3070, #253080);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  color: #fff;
+  font-weight: 800;
+  font-size: 32px;
+  transition: border-color 0.15s;
+}
+.wp-avatar-ring:hover { border-color: #1E3070; }
+
+.wp-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  border-radius: 50%;
+}
+.wp-avatar-ring:hover .wp-avatar-overlay { opacity: 1; }
+
+/* Input */
+.wp-profile-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.wp-profile-input:focus { border-color: #1E3070; }
+
+@media (max-width: 700px) {
+  .wp-profile-row { grid-template-columns: 1fr; }
+  .wp-profile-card { padding: 18px; }
 }

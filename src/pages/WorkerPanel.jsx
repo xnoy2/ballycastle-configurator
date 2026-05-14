@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import LoadingScreen from '../components/LoadingScreen'
@@ -121,9 +121,28 @@ function WorkerDashboard({ session }) {
   const [saving,       setSaving]       = useState(null)
   const [flash,        setFlash]        = useState('')
   const [galleryOpen,  setGalleryOpen]  = useState(false)
+  const [profileOpen,  setProfileOpen]  = useState(false)
+  const [notifs,       setNotifs]       = useState([])
+  const [notifOpen,    setNotifOpen]    = useState(false)
+  const [mobileBotTab, setMobileBotTab] = useState(() => window.innerWidth <= 700 ? 'jobs' : 'detail')
   const realtimeRef    = useRef(null)
+  const avatarInputRef = useRef(null)
 
   useEffect(() => { loadData() }, [])
+
+  // Real-time: new worker notifications
+  useEffect(() => {
+    const channel = supabase
+      .channel(`worker-notif:${session.user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'worker_notifications',
+        filter: `worker_id=eq.${session.user.id}`,
+      }, ({ new: notif }) => {
+        setNotifs(ns => [notif, ...ns])
+      })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [session.user.id])
 
   // Real-time subscription — listens for order/stage changes
   useEffect(() => {
@@ -138,8 +157,12 @@ function WorkerDashboard({ session }) {
         event: 'UPDATE', schema: 'public', table: 'orders',
         filter: `id=eq.${selectedJob.id}`,
       }, payload => {
-        setSelectedJob(prev => ({ ...prev, ...payload.new }))
-        showFlash('📝 Client updated access notes!')
+        setSelectedJob(prev => {
+          if (payload.new.access_notes && payload.new.access_notes !== prev.access_notes) {
+            showFlash('📝 Client updated access notes!')
+          }
+          return { ...prev, ...payload.new }
+        })
       })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'build_stages',
@@ -156,29 +179,25 @@ function WorkerDashboard({ session }) {
   async function loadData() {
     setLoading(true)
 
-    const { data: profileData } = await supabase
-      .from('worker_profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .maybeSingle()
+    const [{ data: profileData }, { data: jobsData }, { data: notifData }] = await Promise.all([
+      supabase.from('worker_profiles').select('*').eq('id', session.user.id).maybeSingle(),
+      supabase.from('orders').select('*, client:client_profiles(name, email, phone)').eq('worker_id', session.user.id).order('created_at', { ascending: false }),
+      supabase.from('worker_notifications').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }).limit(40),
+    ])
     setProfile(profileData)
-
-    const { data: jobsData } = await supabase
-      .from('orders')
-      .select('*, client:client_profiles(name, email, phone)')
-      .eq('worker_id', session.user.id)
-      .order('created_at', { ascending: false })
     setJobs(jobsData || [])
+    setNotifs(notifData || [])
 
     if (jobsData?.length > 0) {
-      await selectJob(jobsData[0])
+      await selectJob(jobsData[0], true)
     }
 
     setLoading(false)
   }
 
-  async function selectJob(job) {
+  async function selectJob(job, fromInit = false) {
     setSelectedJob(job)
+    if (!fromInit) setMobileBotTab('detail')
 
     const [{ data: stagesData }, { data: photosData }] = await Promise.all([
       supabase.from('build_stages').select('*').eq('order_id', job.id).order('stage_number'),
@@ -225,22 +244,76 @@ function WorkerDashboard({ session }) {
     setTimeout(() => setFlash(''), 2500)
   }
 
+  async function markNotifRead(notifId) {
+    await supabase.from('worker_notifications').update({ read: true }).eq('id', notifId)
+    setNotifs(ns => ns.map(n => n.id === notifId ? { ...n, read: true } : n))
+  }
+
+  async function markAllNotifsRead() {
+    const ids = notifs.filter(n => !n.read).map(n => n.id)
+    if (!ids.length) return
+    await supabase.from('worker_notifications').update({ read: true }).in('id', ids)
+    setNotifs(ns => ns.map(n => ({ ...n, read: true })))
+  }
+
+  function formatNotifTime(ts) {
+    const d = new Date(ts)
+    const now = new Date()
+    const diffM = Math.floor((now - d) / 60000)
+    if (diffM < 1) return 'Just now'
+    if (diffM < 60) return `${diffM}m ago`
+    if (diffM < 1440) return `${Math.floor(diffM / 60)}h ago`
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  }
+
+  async function uploadAvatar(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const ext  = file.name.split('.').pop().toLowerCase()
+    const path = `${session.user.id}/avatar.${ext}`
+    const { error: storageError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (storageError) { showFlash('❌ Upload failed'); return }
+    const publicUrl = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+    const avatarUrl = `${publicUrl}?t=${Date.now()}`
+    const { error: dbError } = await supabase
+      .from('worker_profiles')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', session.user.id)
+    if (dbError) { showFlash('❌ Failed to save avatar'); return }
+    setProfile(p => ({ ...p, avatar_url: avatarUrl }))
+    showFlash('✅ Avatar updated!')
+  }
+
   const doneCount   = stages.filter(s => s.status === 'done').length
   const progressPct = stages.length > 0 ? Math.round((doneCount / stages.length) * 100) : 0
+  const unreadCount = notifs.filter(n => !n.read).length
 
   if (loading) return <div className="wp-loading"><div className="wp-spinner" /><p>Loading your jobs…</p></div>
 
   return (
-    <div className="wp-shell">
+    <div className="wp-shell" onClick={() => notifOpen && setNotifOpen(false)}>
 
       {/* ── Sidebar ──────────────────────────────────────────────── */}
       <aside className="wp-sidebar">
+
+        {/* Logo bar */}
         <div className="wp-sidebar-header">
           <img src="/images/bcf.png" alt="BCF" className="wp-sidebar-logo" />
-          <div>
-            <div className="wp-sidebar-title">Worker Panel</div>
-            <div className="wp-sidebar-name">👷 {profile?.name || session.user.email}</div>
+          <div className="wp-sidebar-title">Worker Panel</div>
+        </div>
+
+        {/* Worker profile card — click to edit */}
+        <div className="wp-profile-card-mini" onClick={() => { setProfileOpen(true); setMobileBotTab('detail') }} title="Edit Profile">
+          <div className="wp-profile-avatar-mini">
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span>{(profile?.name || session.user.email || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>}
           </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="wp-profile-card-name">{profile?.name || 'Worker'}</div>
+            <div className="wp-profile-card-role">👷 BCF Worker · Edit Profile</div>
+          </div>
+          <span style={{ color: 'rgba(249,200,0,0.5)', fontSize: 14, flexShrink: 0 }}>›</span>
         </div>
 
         <div className="wp-sidebar-section">My Jobs ({jobs.length})</div>
@@ -266,20 +339,101 @@ function WorkerDashboard({ session }) {
           )}
         </div>
 
-        <button className="wp-signout" onClick={() => supabase.auth.signOut()}>Sign Out</button>
+        <button className="wp-signout" onClick={() => supabase.auth.signOut()}>🚪 Sign Out</button>
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="wp-main">
 
+        {/* Topbar — logo (mobile) + notification bell */}
+        <div className="wp-topbar">
+          <img src="/images/bcf.png" alt="BCF" className="wp-topbar-logo" />
+          <div style={{ flex: 1 }} />
+          <div className="wp-notif-wrap" onClick={e => e.stopPropagation()}>
+            <button className="wp-notif-btn" onClick={() => setNotifOpen(o => !o)} title="Notifications">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span className="wp-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              )}
+            </button>
+          </div>
+        </div>
+
         {flash && <div className="wp-flash">{flash}</div>}
 
-        {!selectedJob ? (
+        <div className="wp-main-content">
+
+        {/* ── Mobile: Jobs list (shown when mobileBotTab === 'jobs') ── */}
+        {mobileBotTab === 'jobs' && (
+          <div className="wp-mobile-jobs-view">
+            <div className="wp-mobile-profile-row" onClick={() => { setProfileOpen(true); setMobileBotTab('detail') }}>
+              <div className="wp-profile-avatar-mini">
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span>{(profile?.name || session.user.email || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>{profile?.name || 'Worker'}</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>👷 Tap to edit profile</div>
+              </div>
+              <span style={{ color: '#cbd5e1', fontSize: 18, flexShrink: 0 }}>›</span>
+            </div>
+
+            <div className="wp-mobile-jobs-label">My Jobs ({jobs.length})</div>
+
+            {jobs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8' }}>
+                <div style={{ fontSize: 44, marginBottom: 10 }}>🔨</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>No jobs assigned yet</div>
+              </div>
+            ) : (
+              jobs.map(job => {
+                const st = getOverallStatus(stages, job)
+                return (
+                  <button key={job.id} className="wp-mobile-job-card" onClick={() => { playPop(); selectJob(job) }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: '#1e293b', marginBottom: 2 }}>{job.client?.name || '—'}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>#{job.order_number}</div>
+                        {job.address && <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>📍 {job.address}</div>}
+                        {job.installation_date && <div style={{ fontSize: 12, color: '#94a3b8' }}>📅 {new Date(job.installation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span className={`wp-job-btn-status ${st}`}>{st === 'done' ? '✅ Complete' : st === 'active' ? '🔄 In Progress' : '⏳ Pending'}</span>
+                        {job.is_birthday_booking && <div style={{ fontSize: 11, color: '#d97706', fontWeight: 700, marginTop: 5 }}>🎂 Birthday</div>}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        )}
+
+        {/* ── Profile Panel ─────────────────────────────────────── */}
+        {mobileBotTab !== 'jobs' && profileOpen && (
+          <WorkerProfilePanel
+            session={session}
+            profile={profile}
+            setProfile={setProfile}
+            avatarInputRef={avatarInputRef}
+            uploadAvatar={uploadAvatar}
+            onClose={() => { setProfileOpen(false); setMobileBotTab('detail') }}
+            showFlash={showFlash}
+          />
+        )}
+
+        {mobileBotTab !== 'jobs' && !profileOpen && !selectedJob && (
           <div className="wp-empty">
             <div style={{ fontSize: 48 }}>🔨</div>
             <h2>Select a job from the sidebar</h2>
           </div>
-        ) : (
+        )}
+
+        {mobileBotTab !== 'jobs' && !profileOpen && selectedJob && (
           <>
             {/* Job Header */}
             <div className="wp-job-header">
@@ -422,12 +576,238 @@ function WorkerDashboard({ session }) {
           </>
         )}
 
+        </div>{/* end wp-main-content */}
+
+        {/* ── Notification Dropdown ────────────────────────────────── */}
+        {notifOpen && <NotifDropdown notifs={notifs} unreadCount={unreadCount} markNotifRead={markNotifRead} markAllNotifsRead={markAllNotifsRead} formatNotifTime={formatNotifTime} />}
+
         {/* ── Gallery Modal ────────────────────────────────────────── */}
         {galleryOpen && selectedJob && (
           <GalleryModal photos={photos} job={selectedJob} onClose={() => setGalleryOpen(false)} />
         )}
 
       </main>
+
+      {/* ── Bottom Nav (mobile only) ─────────────────────────────── */}
+      <nav className="wp-bottom-nav">
+        <button
+          className={`wp-bottom-tab${mobileBotTab === 'jobs' && !notifOpen ? ' active' : ''}`}
+          onClick={() => { setMobileBotTab('jobs'); setProfileOpen(false); setNotifOpen(false) }}
+        >
+          <span>🏠</span>
+          <span>Jobs</span>
+        </button>
+        <button
+          className={`wp-bottom-tab${notifOpen ? ' active' : ''}`}
+          onClick={e => { e.stopPropagation(); setNotifOpen(o => !o) }}
+        >
+          <span style={{ position: 'relative', display: 'inline-flex', lineHeight: 1 }}>
+            🔔
+            {unreadCount > 0 && (
+              <span className="wp-bottom-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </span>
+          <span>Alerts</span>
+        </button>
+        <button
+          className={`wp-bottom-tab${mobileBotTab !== 'jobs' && profileOpen && !notifOpen ? ' active' : ''}`}
+          onClick={() => { setMobileBotTab('detail'); setProfileOpen(true); setNotifOpen(false) }}
+        >
+          <div className="wp-bottom-avatar">
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 10, fontWeight: 800 }}>
+                  {(profile?.name || session.user.email || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                </span>}
+          </div>
+          <span>Profile</span>
+        </button>
+        <button className="wp-bottom-tab" onClick={() => supabase.auth.signOut()}>
+          <span>🚪</span>
+          <span>Sign Out</span>
+        </button>
+      </nav>
+    </div>
+  )
+}
+
+// ─── Notification Dropdown ──────────────────────────────────────────────────
+function NotifDropdown({ notifs, unreadCount, markNotifRead, markAllNotifsRead, formatNotifTime }) {
+  return (
+    <div className="wp-notif-dropdown" onClick={e => e.stopPropagation()}>
+      <div className="wp-notif-dhead">
+        <span>🔔 Notifications{unreadCount > 0 ? ` (${unreadCount})` : ''}</span>
+        {unreadCount > 0 && (
+          <button className="wp-notif-readall" onClick={markAllNotifsRead}>Mark all read</button>
+        )}
+      </div>
+      {notifs.length === 0 ? (
+        <div className="wp-notif-empty">No notifications yet.</div>
+      ) : (
+        <div className="wp-notif-list">
+          {notifs.map(n => (
+            <div
+              key={n.id}
+              className={`wp-notif-item${!n.read ? ' unread' : ''}`}
+              onClick={() => { if (!n.read) markNotifRead(n.id) }}
+            >
+              <div className="wp-notif-title">{n.title}</div>
+              {n.body && <div className="wp-notif-body">{n.body}</div>}
+              <div className="wp-notif-time">{formatNotifTime(n.created_at)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Worker Profile Panel ───────────────────────────────────────────────────
+function WorkerProfilePanel({ session, profile, setProfile, avatarInputRef, uploadAvatar, onClose, showFlash }) {
+  const [name,       setName]       = useState(profile?.name || '')
+  const [nameBusy,   setNameBusy]   = useState(false)
+  const [newPwd,     setNewPwd]     = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdErr,     setPwdErr]     = useState('')
+  const [pwdBusy,    setPwdBusy]    = useState(false)
+  const [pwdDone,    setPwdDone]    = useState(false)
+
+  const initials = (profile?.name || session.user.email || '?')
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
+  async function saveName(e) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setNameBusy(true)
+    const { error } = await supabase
+      .from('worker_profiles')
+      .update({ name: name.trim() })
+      .eq('id', session.user.id)
+    setNameBusy(false)
+    if (error) { showFlash('❌ Failed to save name'); return }
+    setProfile(p => ({ ...p, name: name.trim() }))
+    showFlash('✅ Name updated!')
+  }
+
+  async function changePassword(e) {
+    e.preventDefault()
+    setPwdErr('')
+    if (newPwd.length < 8)      { setPwdErr('Password must be at least 8 characters.'); return }
+    if (newPwd !== confirmPwd)  { setPwdErr('Passwords do not match.'); return }
+    setPwdBusy(true)
+    const { error } = await supabase.auth.updateUser({ password: newPwd })
+    setPwdBusy(false)
+    if (error) { setPwdErr(error.message); return }
+    setNewPwd(''); setConfirmPwd('')
+    setPwdDone(true)
+    showFlash('✅ Password changed!')
+    setTimeout(() => setPwdDone(false), 3000)
+  }
+
+  return (
+    <div className="wp-profile-wrap">
+      {/* Header */}
+      <div className="wp-profile-header">
+        <h2 className="wp-profile-title">👤 My Profile</h2>
+        <button className="wp-profile-close" onClick={onClose}>✕ Back to Jobs</button>
+      </div>
+
+      <div className="wp-profile-body">
+
+        {/* ── Avatar ── */}
+        <div className="wp-profile-card">
+          <div className="wp-profile-section-title">Profile Photo</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+            <div
+              className="wp-avatar-ring"
+              onClick={() => avatarInputRef.current?.click()}
+              title="Click to change photo"
+            >
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontSize: 36, lineHeight: 1 }}>{initials}</span>}
+              <div className="wp-avatar-overlay">📷</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', marginBottom: 4 }}>
+                {profile?.name || 'Worker'}
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>{session.user.email}</div>
+              <button className="wp-btn-primary" style={{ fontSize: 13, padding: '8px 18px' }} onClick={() => avatarInputRef.current?.click()}>
+                📷 Change Photo
+              </button>
+            </div>
+          </div>
+          <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={uploadAvatar} />
+        </div>
+
+        {/* ── Name + Password (side by side on desktop) ── */}
+        <div className="wp-profile-row">
+
+          {/* ── Name ── */}
+          <div className="wp-profile-card">
+            <div className="wp-profile-section-title">Display Name</div>
+            <form onSubmit={saveName} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>Full Name</label>
+                <input
+                  className="wp-profile-input"
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Your full name"
+                  required
+                />
+              </div>
+              <button type="submit" className="wp-btn-primary" style={{ fontSize: 13, padding: '9px 20px', alignSelf: 'flex-start' }} disabled={nameBusy || !name.trim()}>
+                {nameBusy ? 'Saving…' : '💾 Save Name'}
+              </button>
+            </form>
+          </div>
+
+          {/* ── Change Password ── */}
+          <div className="wp-profile-card">
+            <div className="wp-profile-section-title">Change Password</div>
+            {pwdDone ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#16a34a' }}>
+                <div style={{ fontSize: 36 }}>✅</div>
+                <div style={{ fontWeight: 700, marginTop: 8 }}>Password changed successfully!</div>
+              </div>
+            ) : (
+              <form onSubmit={changePassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>New Password</label>
+                  <input
+                    className="wp-profile-input"
+                    type="password"
+                    value={newPwd}
+                    onChange={e => setNewPwd(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>Confirm New Password</label>
+                  <input
+                    className="wp-profile-input"
+                    type="password"
+                    value={confirmPwd}
+                    onChange={e => setConfirmPwd(e.target.value)}
+                    placeholder="Repeat new password"
+                    autoComplete="new-password"
+                  />
+                </div>
+                {pwdErr && <div style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>⚠️ {pwdErr}</div>}
+                <button type="submit" className="wp-btn-primary" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '9px 22px' }} disabled={pwdBusy || !newPwd || !confirmPwd}>
+                  {pwdBusy ? 'Updating…' : '🔒 Update Password'}
+                </button>
+              </form>
+            )}
+          </div>
+
+        </div>
+
+      </div>
     </div>
   )
 }

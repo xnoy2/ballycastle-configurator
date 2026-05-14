@@ -528,6 +528,14 @@ export default function BCFPortal() {
     supabase.functions.invoke('notify-worker', {
       body: { order_id: order.id, type: 'access_notes', notes: accessNotes },
     }).catch(console.warn)
+    // Notify worker via in-app notification
+    if (order.worker_id) {
+      supabase.from('worker_notifications').insert({
+        worker_id: order.worker_id,
+        title: '📝 Access Notes Updated',
+        body: accessNotes || 'Client updated their access notes.',
+      }).catch(console.warn)
+    }
     setNotesSaved(true)
     setTimeout(() => setNotesSaved(false), 2500)
   }

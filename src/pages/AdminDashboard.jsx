@@ -2176,6 +2176,16 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     else console.log('[Notify] sent:', title, '→', clientId)
   }
 
+  async function notifyWorker(workerId, title, body = null) {
+    if (!workerId) return
+    const { error } = await supabase.from('worker_notifications').insert({ worker_id: workerId, title, body })
+    if (error) console.error('[NotifyWorker] insert failed:', error.message)
+  }
+
+  function workerIdForOrder(orderId) {
+    return orders.find(o => o.id === orderId)?.worker_id ?? null
+  }
+
   const filtered = orders.filter(o => {
     const q = search.toLowerCase()
     return !q || o.client?.name?.toLowerCase().includes(q) || o.client?.email?.toLowerCase().includes(q) || o.order_number?.toLowerCase().includes(q)
@@ -2354,13 +2364,21 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
       setOpenOrder(o => o ? { ...o, [field]: value } : o)
       flash('Saved')
       const cid = clientIdForOrder(orderId)
+      const wid = workerIdForOrder(orderId)
       if (field === 'installation_date' && value) {
         const fmt = new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
         notifyClient(cid, '📅 Installation Date Set', `Your installation is scheduled for ${fmt}.`)
+        notifyWorker(wid, '📅 Installation Date Set', `Job scheduled for ${fmt}.`)
       } else if (field === 'installation_window' && value) {
         notifyClient(cid, '🕐 Installation Time Updated', `Your installation window has been updated to: ${value}`)
+        notifyWorker(wid, '🕐 Time Window Updated', `Installation window: ${value}`)
       } else if (field === 'is_birthday_booking' && value === true) {
         notifyClient(cid, '🎂 Birthday Booking Confirmed!', `We've noted this is a birthday booking — we'll make your installation day extra special! 🎉`)
+        notifyWorker(wid, '🎂 Birthday Booking!', 'This job is a birthday booking — remember to bring freebies for the installation!')
+      } else if (field === 'product_order' && value) {
+        notifyWorker(wid, '📦 Product Order Updated', `Product: ${value}`)
+      } else if (field === 'notes' && value) {
+        notifyWorker(wid, '📝 Job Notes Updated', value)
       }
     }
   }
@@ -2369,9 +2387,13 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     const { error } = await supabase.from('orders').update({ worker_id: workerId || null }).eq('id', orderId)
     if (!error) {
       const worker = workers.find(w => w.id === workerId)
+      const order  = orders.find(o => o.id === orderId)
       setOrders(p => p.map(o => o.id === orderId ? { ...o, worker_id: workerId, worker: worker || null } : o))
       setOpenOrder(o => o ? { ...o, worker_id: workerId, worker: worker || null } : o)
       flash('Worker assigned')
+      if (workerId) {
+        notifyWorker(workerId, '🔨 New Job Assigned', `You have been assigned to: ${order?.client?.name || 'a new order'} (${order?.order_number || ''})`)
+      }
     }
   }
 
