@@ -833,3 +833,187 @@
 }
 .ord-drop-zone:hover { border-color: #1E3070; background: #eff6ff; }
 .ord-drop-zone.dragover { border-color: #1E3070; background: #eff6ff; box-shadow: 0 0 0 4px #dbeafe; }
+
+/* ─── API Keys Tab ───────────────────────────────────────────────────────── */
+.adm-apikeys-wrap {
+  padding: 28px;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.adm-apikeys-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.adm-apikeys-title { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px; }
+.adm-apikeys-sub   { font-size: 13px; color: #64748b; margin: 0; }
+
+.adm-apikeys-gen-btn {
+  background: linear-gradient(135deg, #1E3070, #253080);
+  color: #F9C800;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.adm-apikeys-gen-btn:hover { opacity: 0.88; }
+
+/* API reference card */
+.adm-apikeys-ref {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.adm-apikeys-ref-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+.adm-apikeys-endpoints { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.adm-endpoint {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  color: #475569;
+  flex-wrap: wrap;
+}
+.adm-endpoint code {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #1E3070;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.adm-ep-method {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.adm-ep-method.get   { background: #dcfce7; color: #16a34a; }
+.adm-ep-method.patch { background: #fef3c7; color: #d97706; }
+
+.adm-apikeys-ref-note {
+  font-size: 12px;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+.adm-apikeys-ref-note code {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #1E3070;
+}
+
+/* Keys list */
+.adm-apikeys-empty {
+  text-align: center;
+  padding: 56px 0;
+  color: #64748b;
+}
+
+.adm-apikeys-list { display: flex; flex-direction: column; gap: 10px; }
+
+.adm-apikey-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  transition: box-shadow 0.15s;
+  flex-wrap: wrap;
+}
+.adm-apikey-row:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+.adm-apikey-row.revoked { opacity: 0.55; }
+
+.adm-apikey-info { flex: 1; min-width: 0; }
+.adm-apikey-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+.adm-apikey-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #64748b;
+}
+.adm-apikey-prefix {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #475569;
+  letter-spacing: 0.03em;
+}
+
+.adm-apikey-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.adm-apikey-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+.adm-apikey-status.active  { background: #dcfce7; color: #16a34a; }
+.adm-apikey-status.revoked { background: #fee2e2; color: #dc2626; }
+
+.adm-apikey-btn {
+  border: none;
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.adm-apikey-btn.revoke { background: #fef3c7; color: #d97706; }
+.adm-apikey-btn.revoke:hover { background: #fde68a; }
+.adm-apikey-btn.delete { background: #fee2e2; color: #dc2626; }
+.adm-apikey-btn.delete:hover { background: #fecaca; }
+
+@media (max-width: 600px) {
+  .adm-apikeys-wrap { padding: 16px; }
+  .adm-apikey-row { flex-direction: column; align-items: flex-start; }
+  .adm-apikey-actions { width: 100%; justify-content: flex-start; }
+}

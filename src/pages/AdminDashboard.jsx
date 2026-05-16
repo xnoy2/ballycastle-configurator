@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import LoadingScreen from '../components/LoadingScreen'
@@ -163,6 +163,7 @@ function AdminPanel({ session }) {
     { id: 'extras',       icon: '⭐',  label: 'Extras',       badge: extras.length },
     { id: 'reviews',      icon: '💬',  label: 'Reviews',      badge: reviews.length },
     { id: 'referrals',    icon: '🎁',  label: 'Referrals',    badge: pendingReferrals },
+    { id: 'apikeys',      icon: '🔑',  label: 'API Keys' },
   ]
 
   return (
@@ -267,6 +268,8 @@ function AdminPanel({ session }) {
           <ExtrasTab extras={extras} setExtras={setExtras} flash={flash} />
         ) : tab === 'referrals' ? (
           <ReferralsTab referrals={referrals} setReferrals={setReferrals} flash={flash} />
+        ) : tab === 'apikeys' ? (
+          <ApiKeysTab session={session} flash={flash} />
         ) : (
           <ReviewsTab reviews={reviews} />
         )}
@@ -4258,6 +4261,206 @@ function ReviewsTab({ reviews }) {
           )}
         </div>
       </>)}
+    </div>
+  )
+}
+
+// ─── API Keys Tab ────────────────────────────────────────────────────────────
+function ApiKeysTab({ session, flash }) {
+  const [keys,       setKeys]       = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [genModal,   setGenModal]   = useState(false)
+  const [keyName,    setKeyName]    = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [revealKey,  setRevealKey]  = useState(null)
+  const [copied,     setCopied]     = useState(false)
+
+  useEffect(() => { loadKeys() }, [])
+
+  async function loadKeys() {
+    setLoading(true)
+    const { data } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false })
+    setKeys(data || [])
+    setLoading(false)
+  }
+
+  async function generateKey(e) {
+    e.preventDefault()
+    if (!keyName.trim()) return
+    setGenerating(true)
+    const array = new Uint8Array(32)
+    crypto.getRandomValues(array)
+    const hex     = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')
+    const fullKey = `bcf_${hex}`
+    const prefix  = fullKey.slice(0, 12)
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fullKey))
+    const keyHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+    const { error } = await supabase.from('api_keys').insert({
+      name: keyName.trim(), key_hash: keyHash, key_prefix: prefix, created_by: session.user.id,
+    })
+    setGenerating(false)
+    if (error) { flash('❌ Failed to generate key'); return }
+    setRevealKey(fullKey)
+    setKeyName('')
+    setGenModal(false)
+    loadKeys()
+  }
+
+  async function revokeKey(id, name) {
+    if (!window.confirm(`Revoke "${name}"? Apps using this key will lose access immediately.`)) return
+    const { error } = await supabase.from('api_keys').update({ is_active: false }).eq('id', id)
+    if (error) { flash('❌ Failed to revoke'); return }
+    flash('✅ Key revoked')
+    loadKeys()
+  }
+
+  async function deleteKey(id, name) {
+    if (!window.confirm(`Permanently delete "${name}"?`)) return
+    const { error } = await supabase.from('api_keys').delete().eq('id', id)
+    if (error) { flash('❌ Failed to delete'); return }
+    flash('✅ Key deleted')
+    loadKeys()
+  }
+
+  function copyKey() {
+    navigator.clipboard.writeText(revealKey)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="adm-apikeys-wrap">
+
+      {/* ── One-time key reveal ────────────────────────────────────── */}
+      {revealKey && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 10 }}>🔑</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#1e293b', textAlign: 'center' }}>Your New API Key</h3>
+            <p style={{ fontSize: 13, color: '#64748b', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Copy this key now — <strong>it will never be shown again.</strong><br />Store it securely in your application.
+            </p>
+            <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '12px 14px', fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all', color: '#1E3070', marginBottom: 20, userSelect: 'all' }}>
+              {revealKey}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={copyKey} style={{ flex: 1, padding: 12, background: '#1E3070', color: '#F9C800', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+                {copied ? '✅ Copied!' : '📋 Copy Key'}
+              </button>
+              <button onClick={() => { setRevealKey(null); setCopied(false) }} style={{ padding: '12px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Generate key modal ─────────────────────────────────────── */}
+      {genModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setGenModal(false) }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#1e293b' }}>🔑 Generate New API Key</h3>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px' }}>Give this key a name so you know which app uses it.</p>
+            <form onSubmit={generateKey} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Key Name</label>
+                <input autoFocus type="text" value={keyName} onChange={e => setKeyName(e.target.value)}
+                  placeholder="e.g. Field App Integration"
+                  style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                  required />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="submit" disabled={generating || !keyName.trim()}
+                  style={{ flex: 1, padding: 12, background: '#1E3070', color: '#F9C800', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: generating || !keyName.trim() ? 0.6 : 1 }}>
+                  {generating ? 'Generating…' : '🔑 Generate Key'}
+                </button>
+                <button type="button" onClick={() => setGenModal(false)}
+                  style={{ padding: '12px 18px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Page header ───────────────────────────────────────────── */}
+      <div className="adm-apikeys-header">
+        <div>
+          <h2 className="adm-apikeys-title">🔑 API Keys</h2>
+          <p className="adm-apikeys-sub">Generate keys to let external apps read and update worker job data.</p>
+        </div>
+        <button className="adm-apikeys-gen-btn" onClick={() => setGenModal(true)}>+ Generate New Key</button>
+      </div>
+
+      {/* ── API reference card ────────────────────────────────────── */}
+      <div className="adm-apikeys-ref">
+        <div className="adm-apikeys-ref-title">📡 Available Endpoints</div>
+        <div className="adm-apikeys-endpoints">
+          <div className="adm-endpoint">
+            <span className="adm-ep-method get">GET</span>
+            <code>/worker-api/orders</code>
+            <span>List all orders with worker &amp; client info</span>
+          </div>
+          <div className="adm-endpoint">
+            <span className="adm-ep-method get">GET</span>
+            <code>/worker-api/orders/:id</code>
+            <span>Single order with all stages and tasks</span>
+          </div>
+          <div className="adm-endpoint">
+            <span className="adm-ep-method patch">PATCH</span>
+            <code>/worker-api/stages/:id</code>
+            <span>Update stage status — body: <code style={{ background: 'none', border: 'none', fontSize: 12, padding: 0 }}>{`{"status":"pending|in_progress|done"}`}</code></span>
+          </div>
+          <div className="adm-endpoint">
+            <span className="adm-ep-method patch">PATCH</span>
+            <code>/worker-api/tasks/:id</code>
+            <span>Complete a task — body: <code style={{ background: 'none', border: 'none', fontSize: 12, padding: 0 }}>{`{"completed":true,"notes":"..."}`}</code></span>
+          </div>
+        </div>
+        <div className="adm-apikeys-ref-note">
+          Send your key in every request header: <code>x-api-key: bcf_your_key_here</code>
+        </div>
+      </div>
+
+      {/* ── Keys list ─────────────────────────────────────────────── */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>Loading…</div>
+      ) : keys.length === 0 ? (
+        <div className="adm-apikeys-empty">
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🔑</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#475569' }}>No API keys yet</div>
+          <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Click "Generate New Key" to get started.</div>
+        </div>
+      ) : (
+        <div className="adm-apikeys-list">
+          {keys.map(k => (
+            <div key={k.id} className={`adm-apikey-row${k.is_active ? '' : ' revoked'}`}>
+              <div className="adm-apikey-info">
+                <div className="adm-apikey-name">{k.name}</div>
+                <div className="adm-apikey-meta">
+                  <code className="adm-apikey-prefix">{k.key_prefix}…</code>
+                  <span>Created {new Date(k.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  {k.last_used_at
+                    ? <span>Last used {new Date(k.last_used_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    : <span style={{ color: '#94a3b8' }}>Never used</span>}
+                </div>
+              </div>
+              <div className="adm-apikey-actions">
+                <span className={`adm-apikey-status ${k.is_active ? 'active' : 'revoked'}`}>
+                  {k.is_active ? '● Active' : '✕ Revoked'}
+                </span>
+                {k.is_active && (
+                  <button className="adm-apikey-btn revoke" onClick={() => revokeKey(k.id, k.name)}>Revoke</button>
+                )}
+                <button className="adm-apikey-btn delete" onClick={() => deleteKey(k.id, k.name)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   )
 }
