@@ -859,18 +859,25 @@ export default function BCFPortal() {
   async function loadAllPhotos() {
     if (!order?.id || loadingAllPhotos) return
     setLoadingAllPhotos(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('order_photos')
       .select('*, stage:build_stages(label), task:stage_tasks(label, notes)')
       .eq('order_id', order.id)
       .order('created_at', { ascending: true })
+    if (error) {
+      console.error('loadAllPhotos error:', error)
+      setLoadingAllPhotos(false)
+      // Don't mark as loaded so the tab can retry on next open
+      return
+    }
     const list = data || []
     setAllPhotos(list)
     const urls = {}
     await Promise.all(list.map(async p => {
-      const { data: u } = await supabase.storage
+      const { data: u, error: sErr } = await supabase.storage
         .from('order-photos')
         .createSignedUrl(p.storage_path, 3600)
+      if (sErr) console.error('createSignedUrl failed:', p.storage_path, sErr)
       if (u?.signedUrl) urls[p.id] = u.signedUrl
     }))
     setAllPhotoUrls(urls)
@@ -1418,7 +1425,14 @@ export default function BCFPortal() {
 
           return (
             <div>
-              <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1E3070', marginBottom: 20 }}>📸 Photos & Files</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h2 style={{ fontFamily: "'Fredoka One'", fontSize: 26, color: '#1E3070', margin: 0 }}>📸 Photos & Files</h2>
+                <button
+                  onClick={() => { setAllPhotosLoaded(false); setAllPhotos([]); setAllPhotoUrls({}) }}
+                  style={{ fontSize: 12, color: '#1E3070', background: 'none', border: '1.5px solid #d1d5db', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  ↺ Reload
+                </button>
+              </div>
 
               {stages.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: 60 }}>
