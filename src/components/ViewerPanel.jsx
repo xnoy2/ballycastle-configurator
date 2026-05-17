@@ -26,8 +26,6 @@ import { MODULES } from '../data/products'
 import './ViewerPanel.css'
 import BackyardEnvironment from './BackyardEnvironment'
 
-preloadGlbAssets(MODULES)
-
 const ROTATE_STEP = Math.PI / 4   // 45°
 
 // ─── Loaders ──────────────────────────────────────────────────────
@@ -160,6 +158,9 @@ function RotationToolbar({ label, onLeft, onRight, onDeselect }) {
 // ─── Main ─────────────────────────────────────────────────────────
 export default function ViewerPanel({ totalPrice, warnings, activeGlbParts, hasAnyGlb }) {
   const orbitRef = useRef()
+
+  // Preload GLB assets only when the viewer actually mounts (not on every page)
+  useEffect(() => { preloadGlbAssets(MODULES) }, [])
 
   // ── Zoom fix: suppress camera orbit while dragging a piece ───────
   const [isDragging, setIsDragging] = useState(false)

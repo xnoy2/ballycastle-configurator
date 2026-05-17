@@ -100,7 +100,7 @@ export default function LoadingScreen({ subtitle = 'Loading your dashboard…' }
         userSelect: 'none',
       }}>☁️</div>
 
-      {/* ── Swing GIF (transparent background from Pixabay) ───── */}
+      {/* ── Swing GIF ───── */}
       <img
         src="/images/swing.gif"
         alt="Child on swing"

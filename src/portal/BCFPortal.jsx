@@ -936,6 +936,9 @@ export default function BCFPortal() {
   const installDate   = order?.installation_date
     ? new Date(order.installation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'TBC'
+  const buildDate     = order?.build_date
+    ? new Date(order.build_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
   const installWindow = order?.installation_window || 'TBC'
   const address       = order?.address || '—'
   const workerName       = order?.worker?.name  || 'BCF Team'
@@ -1262,6 +1265,12 @@ export default function BCFPortal() {
                 <div style={{ fontFamily: "'Fredoka One'", fontSize: 20, color: '#1E3070', marginBottom: 8 }}>📅 Installation Date</div>
                 <div style={{ fontSize: 30, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'" }}>{installDate}</div>
                 <div style={{ color: '#475569', fontSize: 13, fontWeight: 600, marginTop: 4 }}>{installWindow}</div>
+                {buildDate && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1.5px solid #f0f0f0' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Build Date</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1E3070', marginTop: 2 }}>🏗️ {buildDate}</div>
+                  </div>
+                )}
                 {address !== '—' && <div style={{ color: '#64748b', fontSize: 12, marginTop: 6 }}>📍 {address}</div>}
                 <button className="btn-green" style={{ marginTop: 14, fontSize: 13, background: '#F9C800', color: '#1E3070' }} onClick={() => { setTab('delivery'); localStorage.setItem('portal_tab', 'delivery') }}>Delivery Details →</button>
               </div>
@@ -1707,9 +1716,19 @@ export default function BCFPortal() {
 
                 {/* Scheduled Date */}
                 <div className="card">
-                  <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 10 }}>📅 Scheduled Date</div>
-                  <div style={{ fontSize: 30, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'", lineHeight: 1.1 }}>{installDate}</div>
-                  <div style={{ fontWeight: 700, color: '#475569', marginTop: 6, fontSize: 14 }}>{installWindow}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: buildDate ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 6 }}>📅 Installation Date</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'", lineHeight: 1.1 }}>{installDate}</div>
+                      <div style={{ fontWeight: 700, color: '#475569', marginTop: 4, fontSize: 13 }}>{installWindow}</div>
+                    </div>
+                    {buildDate && (
+                      <div>
+                        <div style={{ fontFamily: "'Fredoka One'", fontSize: 18, color: '#1E3070', marginBottom: 6 }}>🏗️ Build Date</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#1E3070', fontFamily: "'Fredoka One'", lineHeight: 1.1 }}>{buildDate}</div>
+                      </div>
+                    )}
+                  </div>
                   {productOrder && (
                     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1.5px solid #f0f0f0', fontSize: 13 }}>
                       <div style={{ fontWeight: 700, color: '#1E3070' }}>🪵 Your Climbing Frame</div>

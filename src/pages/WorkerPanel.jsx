@@ -445,6 +445,9 @@ function WorkerDashboard({ session }) {
                   {selectedJob.installation_date && (
                     <span>📅 {new Date(selectedJob.installation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                   )}
+                  {selectedJob.build_date && (
+                    <span>🏗️ Build: {new Date(selectedJob.build_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  )}
                 </div>
               </div>
               <div className="wp-progress-badge">

@@ -2286,6 +2286,7 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
       flash(payForm.type === 'invoice' ? 'Invoice added' : payForm.type === 'amendment' ? 'Amendment recorded' : 'Payment recorded')
       const typeLabel = payForm.type === 'invoice' ? 'Invoice' : payForm.type === 'received' ? 'Payment Received' : 'Payment Update'
       notifyClient(clientIdForOrder(orderId), `💰 ${typeLabel}`, `${label} — £${amount.toFixed(2)}`)
+      if (payForm.type === 'amendment') syncContractToGHL(orderId)
     }
     setAddingPayment(null)
     setPayForm({ type: 'invoice', label: '', percentage: '', amount: '', due_date: '', status: 'upcoming', reference: '', received_date: '', method: 'bank', notes: '' })
@@ -2303,16 +2304,19 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
 
   async function deletePayment(orderId, paymentId) {
     if (!await doConfirm('Delete this payment record?')) return
+    const isAmendment = orderPayments[orderId]?.find(p => p.id === paymentId)?.type === 'amendment'
     const { error } = await supabase.from('order_payments').delete().eq('id', paymentId)
     if (!error) {
       setOrderPayments(p => ({ ...p, [orderId]: p[orderId].filter(x => x.id !== paymentId) }))
       flash('Deleted')
+      if (isAmendment) syncContractToGHL(orderId)
     }
   }
 
   async function updatePayment(orderId, paymentId) {
     const amount = parseFloat(editForm.amount)
     if (!editForm.label?.trim() || isNaN(amount)) return
+    const isAmendment = orderPayments[orderId]?.find(p => p.id === paymentId)?.type === 'amendment'
     const update = {
       label:         editForm.label.trim(),
       amount,
@@ -2325,6 +2329,7 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     if (!error) {
       setOrderPayments(p => ({ ...p, [orderId]: p[orderId].map(x => x.id === paymentId ? { ...x, ...update } : x) }))
       flash('Updated')
+      if (isAmendment) syncContractToGHL(orderId)
     }
     setEditingPayment(null)
     setEditForm({})
@@ -2360,6 +2365,11 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
     }
   }
 
+  function syncContractToGHL(orderId) {
+    supabase.functions.invoke('update-ghl-value', { body: { order_id: orderId } })
+      .catch(err => console.warn('GHL contract sync skipped:', err))
+  }
+
   async function updateOrderField(orderId, field, value) {
     const { error } = await supabase.from('orders').update({ [field]: value }).eq('id', orderId)
     if (!error) {
@@ -2372,6 +2382,9 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
         const fmt = new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
         notifyClient(cid, '📅 Installation Date Set', `Your installation is scheduled for ${fmt}.`)
         notifyWorker(wid, '📅 Installation Date Set', `Job scheduled for ${fmt}.`)
+      } else if (field === 'build_date' && value) {
+        const fmt = new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+        notifyWorker(wid, '🏗️ Build Date Set', `Build date for this job: ${fmt}.`)
       } else if (field === 'installation_window' && value) {
         notifyClient(cid, '🕐 Installation Time Updated', `Your installation window has been updated to: ${value}`)
         notifyWorker(wid, '🕐 Time Window Updated', `Installation window: ${value}`)
@@ -2382,6 +2395,8 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
         notifyWorker(wid, '📦 Product Order Updated', `Product: ${value}`)
       } else if (field === 'notes' && value) {
         notifyWorker(wid, '📝 Job Notes Updated', value)
+      } else if (field === 'contract_amount') {
+        syncContractToGHL(orderId)
       }
     }
   }
@@ -2901,8 +2916,16 @@ function OrdersTab({ orders, setOrders, workers, allStages, flash, reload }) {
                       </select>
                     </div>
                     <div>
-                      <label className="adm-label">Installation Date</label>
-                      <input type="date" className="adm-input" defaultValue={order.installation_date || ''} onBlur={e => updateOrderField(order.id, 'installation_date', e.target.value)} />
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <label className="adm-label">Installation Date</label>
+                          <input type="date" className="adm-input" defaultValue={order.installation_date || ''} onBlur={e => updateOrderField(order.id, 'installation_date', e.target.value)} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label className="adm-label">Build Date</label>
+                          <input type="date" className="adm-input" defaultValue={order.build_date || ''} onBlur={e => updateOrderField(order.id, 'build_date', e.target.value)} />
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label className="adm-label">Time Window</label>
